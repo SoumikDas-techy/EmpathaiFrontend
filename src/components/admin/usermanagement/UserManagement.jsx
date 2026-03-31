@@ -9,7 +9,7 @@ import {
     getStudents, getSchoolAdmins, getPsychologists, getContentAdmins,
     createUser, updateUser, deleteUser, resetPassword,
     getSchools, createSchool, deleteSchool
-} from '../../api/usermanagementapi.js'
+} from '../../../api/usermanagementapi.js'
 
 const TAB_ROLE_MAP = {
     student: 'STUDENT',

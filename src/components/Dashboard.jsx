@@ -20,14 +20,16 @@ import {
   CheckCircleIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline'
-import Assessment from './Assessment'
-import Chatbot from './Chatbot'
-import Resources from './Resources'
-import ChatBuddy from './ChatBuddy'
-import Curriculum from './Curriculum'
-import Questionnaire from './Questionnaire'
-import Activities from './Activities'
-import Schedule from './Schedule'
+
+import Assessment from "./studentdashboard/assessment/Assessment";
+import Chatbot from "./studentdashboard/chatbuddy/Chatbot";
+import ChatBuddy from "./studentdashboard/chatbuddy/ChatBuddy";
+import Counselors from "./studentdashboard/counselors/Counselors";
+import Curriculum from "./studentdashboard/curriculum/Curriculum";
+import Activities from "./studentdashboard/activity/Activities";
+
+import Questionnaire from './studentdashboard/assessment/Questionnaire';
+import Schedule from './studentdashboard/schedule/Schedule';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview')

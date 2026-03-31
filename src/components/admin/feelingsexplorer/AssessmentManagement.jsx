@@ -13,39 +13,13 @@ import {
     updateQuestion,
     deleteQuestion,
     createResponse
-} from '../../api/Assessmentmanagement'
+} from '../../../api/Assessmentmanagement'
 export default function AssessmentManagement() {
     const [questions, setQuestions] = useState([])
-        /*{
-            id: 1,
-            text: 'How are you feeling today?',
-            options: ['Very Happy 😊', 'Happy 🙂', 'Okay 😐', 'Sad 😢'],
-            groups: ['Daily Check-in']
-        },
-        {
-            id: 2,
-            text: 'How well did you sleep last night?',
-            options: ['Very Well 😴', 'Good 😌', 'Not Great 😪', 'Poorly 😫'],
-            groups: ['Daily Check-in']
-        },
-        {
-            id: 3,
-            text: 'How confident do you feel about your studies?',
-            options: ['Very Confident 💪', 'Confident 👍', 'Somewhat Confident 🤔', 'Not Confident 😟'],
-            groups: ['Class 8th']
-        },
-    ])*/
+       
 
     const [groups, setGroups] = useState([])
-    /*
-        { id: 'Daily Check-in', name: 'Daily Check-in', color: 'purple', isDefault: true },
-        { id: 'Class 8th', name: 'Class 8th Standard', color: 'green', isDefault: true },
-        { id: 'Class 9th', name: 'Class 9th Standard', color: 'blue', isDefault: true },
-        { id: 'Class 10th', name: 'Class 10th Standard', color: 'indigo', isDefault: true },
-        
-        
-    ])*/
-
+    
     // Get current user role
 const savedUser = localStorage.getItem('user')
 const currentUser = savedUser ? JSON.parse(savedUser) : null
@@ -314,37 +288,6 @@ const grp = Array.isArray(question.groups)
         setIsGroupModalOpen(true)
     }
 
-    /*const handleSaveQuestion = () => {
-        const options = [
-            questionFormData.option1,
-            questionFormData.option2,
-            questionFormData.option3,
-            questionFormData.option4
-        ].filter(opt => opt.trim())
-
-        if (!questionFormData.question || options.length < 2) {
-            alert('Please provide a question and at least 2 options')
-            return
-        }
-
-        if (editingQuestion) {
-            setQuestions(questions.map(q =>
-                q.id === editingQuestion.id
-                    ? { ...q, text: questionFormData.question, options, groups: questionFormData.groups }
-                    : q
-            ))
-        } else {
-const newQuestion = {
-    id: Date.now(),
-    text: questionFormData.question,
-    options,
-    groups: questionFormData.groups,
-    
-}
-            setQuestions([...questions, newQuestion])
-        }
-        setIsQuestionModalOpen(false)
-    }*/
 
 
 
@@ -456,32 +399,7 @@ createGroup(groupData)
     })
 }
 
-    /*const handleDeleteQuestion = (id) => {
-        if (window.confirm('Are you sure you want to delete this question?')) {
-            setQuestions(questions.filter(q => q.id !== id))
-        }
-    }
-
-    const handleDeleteGroup = (groupId) => {
-        const group = groups.find(g => g.id === groupId)
-        if (group.isDefault) {
-            alert('Cannot delete default groups')
-            return
-        }
-
-        const hasQuestions = questions.some(q => q.groups.includes(groupId))
-        if (hasQuestions) {
-            alert('Cannot delete group with existing questions. Please delete or reassign questions first.')
-            return
-        }
-
-        if (window.confirm(`Are you sure you want to delete the group "${group.name}"?`)) {
-            setGroups(groups.filter(g => g.id !== groupId))
-            if (selectedGroup === groupId) {
-                setSelectedGroup(null)
-            }
-        }
-    }*/
+   
 
 const handleDeleteGroup = (groupId) => {
     console.log(' Delete clicked for:', groupId)
@@ -538,35 +456,6 @@ const handleDeleteQuestion = (id) => {
         setExpandedQuestion(expandedQuestion === id ? null : id)
     }
 
-/*const handleOptionClick = (question, option) => {
-    const emotion = detectEmotion(option)
-
-    const newResponse = {
-        studentId: 'currentStudent',
-        groupId: selectedGroup,
-        questionId: question.id,
-        emotion,
-        answer: option,
-        date: new Date().toISOString()
-    }
-         setStudentResponses(prev => {
-        // Remove previous answer of same student for same question
-        const filtered = prev.filter(
-            r =>
-                !(
-                    r.studentId === 'currentStudent' &&
-                    r.questionId === question.id
-                )
-        )
-
-        // Add latest answer
-        return [...filtered, newResponse]
-    })
-
-    setSelectedResponse(newResponse)
-    setIsResponseModalOpen(true)
-}
-*/
 
 const handleOptionClick = (question, option) => {
 
@@ -639,7 +528,6 @@ const handleOptionClick = (question, option) => {
 }
 
    
-    // WITH THIS
 const getGroupQuestions = (groupId) => {
     return questions.filter(q => {
         if (!q.groups && !q.groupMap) return false
@@ -742,9 +630,7 @@ const getStudentAnswer = (studentId, questionId) => {
 
     return `${letter} - ${fullAnswer}`
 }
-/*const filteredSheet = Array.isArray(responseSheet) 
-    ? responseSheet.filter(matchesGender) 
-    : []*/
+
 const filteredSheet = Array.isArray(responseSheet)
     ? responseSheet.filter(s => matchesGender(s) && filterByDate(s))
     : []
@@ -795,18 +681,14 @@ const filteredSheet = Array.isArray(responseSheet)
                         return (
                             <div
                                 key={group.id}
-                               /* onClick={() => {
-setSelectedGroup(group.id)
-setExpandedQuestion(null)
-setShowResponseSheet(false)
-}} */ 
+                               
 onClick={() => {
     setSelectedGroup(group.id)
     setExpandedQuestion(null)
     setShowResponseSheet(false)
-    setResponseSheet([])  // ← clear old sheet
-    setFilterGender('')   // ← reset gender filter
-    setDateFilter('ALL') // ← reset date filter
+    setResponseSheet([])  
+    setFilterGender('')  
+    setDateFilter('ALL') 
     loadAnalytics(selectedFilter, group.id)
 }}
                                 className={`
@@ -1339,202 +1221,11 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                     </div>
                 </div>
             )}
-            
-
-{/* Activity & Alerts Panel 
-{isDailyCheckinSelected && (
-  <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                Recent Activity
-            </h4>
-            <ul className="space-y-2 text-sm text-gray-600">
-
-    {totalAllResponses === 0 ? (
-        <li>No check-ins recorded yet.</li>
-    ) : (
-        <li>{totalAllResponses} total check-ins recorded</li>
-    )}
-
-    {lastQuestion && (
-        <li>
-            Latest question added: "{lastQuestion.text}"
-        </li>
-    )}
-
-    {totalNegativeResponses > 0 && (
-        <li className="text-red-600 font-medium">
-            {totalNegativeResponses} negative responses detected
-        </li>
-    )}
-
-</ul>
-        </div>
-
-        <div className="bg-red-50 p-4 rounded-lg shadow-sm">
-            <h4 className="text-sm font-semibold text-red-700 mb-2">
-                Alerts
-            </h4>
-          <p className="text-sm text-red-600">
-    {totalNegativeResponses > 0
-        ? `${totalNegativeResponses} students need attention`
-        : "No critical alerts"}
-</p>
-
-
-        </div>
-
-    </div>
-)}
-
-
-
-
-            {isResponseModalOpen && selectedResponse && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-        <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-xl">
-
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Response Submitted ✅
-            </h3>
-
-            <p className="text-sm text-gray-600 mb-6">
-                Your answer:
-                <span className="font-medium">
-                    {" "}{selectedResponse.answer}
-                </span>
-            </p>
-
-            <button
-                onClick={() => setIsResponseModalOpen(false)}
-                className="w-full py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-            >
-                Close
-            </button>
-
-        </div>
-    </div>
-)}
-*/}
+ 
 
 {groups.find(g => g.id === selectedGroup)?.name === 'Daily Check-in' && (
 <div className="mb-10 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-{/* Analytics Dashboard for Daily Check-in Group 
-  {/* Recent Activity
-  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-    <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            Recent Activity
-        </h4>
-        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-            {selectedFilter === 'ALL' ? 'All Time'
-                : selectedFilter === 'TODAY' ? 'Today'
-                : selectedFilter === 'THIS_WEEK' ? 'This Week'
-                : 'This Month'}
-        </span>
-    </div>
-    <ul className="space-y-2 text-sm text-gray-600">
-      <li className="flex justify-between">
-        <span>Total check-ins</span>
-        <span className="font-semibold text-purple-600">
-            {analytics?.totalResponses ?? totalAllResponses}
-        </span>
-      </li>
-      <li className="flex justify-between">
-        <span>Unique students</span>
-        <span className="font-semibold text-purple-600">
-            {analytics?.uniqueStudents ?? 0}
-        </span>
-      </li>
-      <li className="flex justify-between">
-        <span>Total questions</span>
-        <span className="font-semibold text-purple-600">
-            {questions.length}
-        </span>
-      </li>
-      <li className="flex justify-between">
-        <span>Groups created</span>
-        <span className="font-semibold text-purple-600">
-            {groups.length}
-        </span>
-      </li>
-      {analytics?.emotionBreakdown && (
-        <>
-        <li className="flex justify-between text-green-600 pt-2 border-t border-gray-100">
-            <span>Positive responses</span>
-            <span className="font-semibold">
-                {analytics.emotionBreakdown.positive || 0}
-            </span>
-        </li>
-        <li className="flex justify-between text-yellow-600">
-            <span>Neutral responses</span>
-            <span className="font-semibold">
-                {analytics.emotionBreakdown.neutral || 0}
-            </span>
-        </li>
-        <li className="flex justify-between text-red-600">
-            <span>Negative responses</span>
-            <span className="font-semibold">
-                {analytics.emotionBreakdown.negative || 0}
-            </span>
-        </li>
-        </>
-      )}
-      {lastQuestion && (
-        <li className="pt-2 border-t border-gray-100 text-xs text-gray-500">
-          Latest question: <span className="font-medium text-gray-700">"{lastQuestion.questions || lastQuestion.text || ''}"</span>
-        </li>
-      )}
-    </ul>
-  </div>
- */}
-  {/* Alerts 
-  <div className={`border rounded-lg p-4 shadow-sm ${
-      (analytics?.negativeResponses ?? totalNegativeResponses) > 0
-          ? 'bg-red-50 border-red-200'
-          : 'bg-green-50 border-green-200'}`}>
-    <h4 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${
-        (analytics?.negativeResponses ?? totalNegativeResponses) > 0
-            ? 'text-red-700' : 'text-green-700'}`}>
-      Alerts
-    </h4>
-    {(analytics?.negativeResponses ?? totalNegativeResponses) > 0 ? (
-      <div>
-        <p className="text-sm text-red-600 font-medium mb-2">
-          {analytics?.negativeResponses ?? totalNegativeResponses} students need attention
-        </p>
-        <div className="space-y-1 max-h-48 overflow-y-auto">
-          {(analytics?.studentsNeedingAttention || studentResponses.filter(r => r.emotion === 'negative'))
-            .slice(0, 5)
-            .map((s, i) => (
-              <div key={i} className="text-xs bg-white border border-red-100 rounded p-2">
-                <div className="flex justify-between items-start mb-1">
-                    <span className="font-semibold text-gray-800">
-                        {s.studentName || s.studentId}
-                    </span>
-                    <span className="text-gray-400">{s.className}</span>
-                </div>
-                <p className="text-gray-500 text-xs">{s.question || s.questionText}</p>
-                <p className="text-red-500 font-medium mt-1">→ "{s.answer}"</p>
-              </div>
-            ))}
-        </div>
-      </div>
-    ) : (
-      <div className="text-center py-4">
-        <p className="text-2xl mb-1">✅</p>
-        <p className="text-sm text-green-700 font-medium">All students doing well</p>
-        <p className="text-xs text-gray-400 mt-1">
-            {selectedFilter === 'TODAY' ? 'Today' 
-            : selectedFilter === 'THIS_WEEK' ? 'This week'
-            : selectedFilter === 'THIS_MONTH' ? 'This month'
-            : 'All time'}
-        </p>
-      </div>
-    )}
-  </div>
-*/}
+
   {/* Group Summary */}
   <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
     <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">

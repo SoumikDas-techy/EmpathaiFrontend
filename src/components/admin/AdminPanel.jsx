@@ -9,9 +9,9 @@ import {
   AcademicCapIcon,
   FlagIcon
 } from '@heroicons/react/24/outline'
-import UserManagement from './UserManagement'
-import AssessmentManagement from './AssessmentManagement'
-import CurriculumManagement from './CurriculumManagement'
+import UserManagement from './usermanagement/UserManagement'
+import AssessmentManagement from './feelingsexplorer/AssessmentManagement'
+import CurriculumManagement from './curriculummanagement/CurriculumManagement'
 import FlaggedChats from './FlaggedChats'
 import AnalyticsDashboard from './AnalyticsDashboard'
 

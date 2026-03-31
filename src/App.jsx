@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import Header from './components/Header'
-import Hero from './components/Hero'
+import Header from './components/pagelayout/Header'
+import Hero from './components/pagelayout/Hero'
 import WhyEmpathAI from './components/WhyEmpathAI'
 import HowItWorks from './components/HowItWorks'
 import InclusivityFocus from './components/InclusivityFocus'
