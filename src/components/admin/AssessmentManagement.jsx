@@ -763,20 +763,6 @@ const filteredSheet = Array.isArray(responseSheet)
                     </div>
                     <div className="flex gap-2">
 
-                 <select
-    value={selectedFilter}
-    onChange={(e) => {
-        const newFilter = e.target.value
-        setSelectedFilter(newFilter)
-        loadAnalytics(newFilter, selectedGroup)
-    }}
-    className="border border-gray-300 rounded-md shadow-sm text-sm font-medium px-3 py-2 focus:ring-purple-500 focus:border-purple-500"
->
-    <option value="ALL">All Time</option>
-    <option value="TODAY">Today</option>
-    <option value="THIS_WEEK">This Week</option>
-    <option value="THIS_MONTH">This Month</option>
-</select>
 
                         <button
                             onClick={() => handleOpenQuestionModal()}
@@ -1260,15 +1246,12 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                         </td>
                         {filteredSheet.map((student, i) => {
     const questionText = question.questions || question.question || question.text || ''
-    const ans = student.answers
-        ? (
-            student.answers[questionText] ||
-            Object.entries(student.answers).find(([k]) =>
-                k.toLowerCase().trim() === questionText.toLowerCase().trim()
-            )?.[1] ||
-            '-'
-          )
-        : '-'
+    // ✅ responseSheet is flat rows — find matching row by studentId + questionId or questionText
+    const ans = responseSheet.find(
+        r => r.studentId === student.studentId &&
+        (r.questionId === question.id ||
+         r.questionText?.toLowerCase().trim() === questionText.toLowerCase().trim())
+    )?.responseValue || '-'
     return (
         <td key={i} className="border px-4 py-2 text-center">
             {ans}
