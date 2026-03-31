@@ -7,13 +7,15 @@ import {
   Bars3Icon,
   XMarkIcon,
   AcademicCapIcon,
-  FlagIcon
+  FlagIcon,
+  TrophyIcon,
 } from '@heroicons/react/24/outline'
 import UserManagement from './usermanagement/UserManagement'
 import AssessmentManagement from './feelingsexplorer/AssessmentManagement'
 import CurriculumManagement from './curriculummanagement/CurriculumManagement'
 import FlaggedChats from './FlaggedChats'
 import AnalyticsDashboard from './AnalyticsDashboard'
+import Rewards from './Rewards'
 
 export default function AdminPanel({ user, onLogout }) {
   const menuItems = [
@@ -22,6 +24,7 @@ export default function AdminPanel({ user, onLogout }) {
     { id: 'curriculum', label: 'Curriculum', icon: AcademicCapIcon },
     { id: 'flagged_chats', label: 'Support Alerts', icon: FlagIcon },
     { id: 'analytics', label: 'Analytics', icon: ChartBarIcon },
+    { id: 'rewards', label: 'Rewards', icon: TrophyIcon },
   ]
 
   const filteredMenuItems = menuItems.map(item => {
@@ -32,7 +35,7 @@ export default function AdminPanel({ user, onLogout }) {
   }).filter(item => {
     const role = user?.role;
     if (role === 'SUPER_ADMIN') return true;
-    if (role === 'SCHOOL_ADMIN') return ['users'].includes(item.id);
+    if (role === 'SCHOOL_ADMIN') return ['users', 'rewards'].includes(item.id);
     if (role === 'CONTENT_ADMIN') return ['curriculum'].includes(item.id);
     if (role === 'PSYCHOLOGIST') return ['assessments', 'flagged_chats'].includes(item.id);
     return false;
@@ -53,6 +56,8 @@ export default function AdminPanel({ user, onLogout }) {
         return <FlaggedChats />
       case 'analytics':
         return <AnalyticsDashboard />
+      case 'rewards':
+        return <Rewards />
       default:
         return (
           <div className="p-8 text-center text-gray-500">
@@ -60,6 +65,18 @@ export default function AdminPanel({ user, onLogout }) {
             <p>This module is under development.</p>
           </div>
         )
+    }
+  }
+
+  const getSubtitle = () => {
+    switch (activeTab) {
+      case 'users': return "Manage your organization's users and roles"
+      case 'assessments': return "Manage emotional check-ins and activities"
+      case 'curriculum': return "Manage syllabi and learning content"
+      case 'flagged_chats': return "Manage high-risk student interactions"
+      case 'analytics': return "View data and insights"
+      case 'rewards': return "Create and manage student rewards and recognition"
+      default: return ''
     }
   }
 
@@ -149,15 +166,7 @@ export default function AdminPanel({ user, onLogout }) {
               <h2 className="text-2xl font-bold text-gray-900">
                 {filteredMenuItems.find(i => i.id === activeTab)?.label}
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Manage your organization's {
-                  activeTab === 'users' ? 'users and roles' :
-                    activeTab === 'assessments' ? 'emotional check-ins and activities' :
-                      activeTab === 'curriculum' ? 'syllabi and learning content' :
-                        activeTab === 'flagged_chats' ? 'high-risk student interactions' :
-                          'data and insights'
-                }.
-              </p>
+              <p className="mt-1 text-sm text-gray-500">{getSubtitle()}</p>
             </div>
             {renderContent()}
           </div>
