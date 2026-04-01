@@ -40,7 +40,6 @@ export default function UserManagement({ user }) {
     const [userToDelete, setUserToDelete] = useState(null)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
-    // ── FIX 1: added parentPhone to formData ─────────────────────────────────
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -50,7 +49,7 @@ export default function UserManagement({ user }) {
         section: '',
         school: '',
         parentName: '',
-        parentPhone: '',       // NEW
+        parentPhone: '',
         phoneNumber: '',
         dateOfBirth: '',
         address: '',
@@ -144,12 +143,12 @@ export default function UserManagement({ user }) {
                 email: userToEdit.email || '',
                 role: userToEdit.role || activeTab,
                 password: '',
-                class: userToEdit.class || '',
+                class: userToEdit.class || userToEdit.className || '',
                 section: userToEdit.section || '',
                 school: userToEdit.school || '',
                 parentName: userToEdit.parentName || '',
-                parentPhone: userToEdit.parentPhone || '',   // NEW
-                phoneNumber: userToEdit.phoneNumber || userToEdit.contactNumber || '',
+                parentPhone: userToEdit.parentEmail || '',   // parentEmail field holds parent phone
+                phoneNumber: userToEdit.phoneNumber || '',
                 dateOfBirth: userToEdit.dateOfBirth || '',
                 address: userToEdit.address || '',
                 bloodGroup: userToEdit.bloodGroup || '',
@@ -168,7 +167,7 @@ export default function UserManagement({ user }) {
                 section: '',
                 school: activeTab === 'student' && selectedSchool ? selectedSchool : '',
                 parentName: '',
-                parentPhone: '',   // NEW
+                parentPhone: '',
                 phoneNumber: '',
                 dateOfBirth: '',
                 address: '',
@@ -205,7 +204,6 @@ export default function UserManagement({ user }) {
             if (activeTab === 'student') {
                 if (!school?.trim()) errors.school = "School is required"
                 if (!rollNo?.trim()) errors.rollNo = "Roll No is required"
-                // ── FIX 1: validate formData.class (not className) ────────────
                 if (!formData.class?.trim()) errors.class = "Class is required"
                 if (!section?.trim()) errors.section = "Section is required"
                 if (!parentName?.trim()) errors.parentName = "Parent Name is required"
@@ -255,7 +253,7 @@ export default function UserManagement({ user }) {
                     className: formData.class || undefined,
                     grade: formData.class || undefined,
                     parentName: formData.parentName || undefined,
-                    parentEmail: formData.parentPhone || undefined,  // stored in parentEmail field
+                    parentEmail: formData.parentPhone || undefined,  // stored in parentEmail field on Student
                     dateOfBirth: formData.dateOfBirth || undefined,
                     address: formData.address || undefined,
                     bloodGroup: formData.bloodGroup || undefined,
@@ -461,8 +459,9 @@ export default function UserManagement({ user }) {
                 <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 sm:text-sm" />
             </div>
 
-            {/* Views */}
+            {/* ── VIEWS ── */}
             {activeTab === 'student' && !selectedSchool ? (
+                /* School cards */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {(() => {
                         const schoolsMap = {}
@@ -485,6 +484,7 @@ export default function UserManagement({ user }) {
                     })()}
                 </div>
             ) : activeTab === 'student' && selectedSchool && !selectedClass ? (
+                /* Class cards */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {(() => {
                         const classesMap = {}
@@ -504,6 +504,7 @@ export default function UserManagement({ user }) {
                     })()}
                 </div>
             ) : activeTab === 'schools' ? (
+                /* Schools table */
                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -532,7 +533,63 @@ export default function UserManagement({ user }) {
                         </tbody>
                     </table>
                 </div>
+            ) : activeTab === 'student' && selectedSchool && selectedClass ? (
+                /* ── STUDENT TABLE: now shows Class, Section, Parent Phone ── */
+                <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Phone</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredUsers.map(u => (
+                                <tr key={u.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.name}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {u.class || u.className || '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {u.section ? `Section ${u.section}` : '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                        {u.phoneNumber
+                                            ? <span className="flex items-center gap-1"><PhoneIcon className="w-3.5 h-3.5 text-gray-400" />{u.phoneNumber}</span>
+                                            : <span className="text-gray-300">—</span>
+                                        }
+                                    </td>
+                                    <td className="px-6 py-4 text-sm font-medium">
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
+                                                <PencilIcon className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredUsers.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
+                /* Generic table for school_admin / psychologist / content_admin */
                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -558,7 +615,7 @@ export default function UserManagement({ user }) {
                 </div>
             )}
 
-            {/* Create/Edit Modal */}
+            {/* ── CREATE / EDIT MODAL ── */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4">
@@ -567,7 +624,6 @@ export default function UserManagement({ user }) {
                             <h3 className="text-lg font-bold mb-4">{editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}</h3>
                             <div className="space-y-4">
 
-                                {/* ── FIX 2: Name shown only ONCE at top for all tabs ── */}
                                 <div>
                                     <label className="block text-sm font-medium">Name</label>
                                     <input
@@ -606,7 +662,6 @@ export default function UserManagement({ user }) {
                                     </>
                                 ) : activeTab === 'student' ? (
                                     <>
-                                        {/* ── FIX 1: DOB + Class dropdown (1–10 Standard) ── */}
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Date of Birth</label>
@@ -632,7 +687,13 @@ export default function UserManagement({ user }) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Section</label>
-                                                <input type="text" value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`} />
+                                                <select value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}>
+                                                    <option value="">Select Section</option>
+                                                    <option value="A">Section A</option>
+                                                    <option value="B">Section B</option>
+                                                    <option value="C">Section C</option>
+                                                    <option value="D">Section D</option>
+                                                </select>
                                                 {validationErrors.section && <p className="text-red-500 text-xs mt-1">{validationErrors.section}</p>}
                                             </div>
                                             <div>
@@ -645,7 +706,17 @@ export default function UserManagement({ user }) {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Blood Group</label>
-                                                <input type="text" value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.bloodGroup ? 'border-red-500' : 'border-gray-300'}`} />
+                                                <select value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.bloodGroup ? 'border-red-500' : 'border-gray-300'}`}>
+                                                    <option value="">Select Blood Group</option>
+                                                    <option value="A+">A+</option>
+                                                    <option value="A-">A-</option>
+                                                    <option value="B+">B+</option>
+                                                    <option value="B-">B-</option>
+                                                    <option value="AB+">AB+</option>
+                                                    <option value="AB-">AB-</option>
+                                                    <option value="O+">O+</option>
+                                                    <option value="O-">O-</option>
+                                                </select>
                                                 {validationErrors.bloodGroup && <p className="text-red-500 text-xs mt-1">{validationErrors.bloodGroup}</p>}
                                             </div>
                                             <div>
@@ -671,7 +742,6 @@ export default function UserManagement({ user }) {
                                             </div>
                                         </div>
 
-                                        {/* ── FIX 3: Parent Phone Number field ── */}
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Parent Phone Number</label>
