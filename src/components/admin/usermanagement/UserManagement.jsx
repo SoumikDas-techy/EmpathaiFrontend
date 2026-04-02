@@ -24,7 +24,7 @@ const ordinal = n => {
     const s = ['th', 'st', 'nd', 'rd'], v = n % 100
     return n + (s[(v - 20) % 10] || s[v] || s[0])
 }
-const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `${ordinal(n)} Standard`)
+const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => `${ordinal(n)} Standard`)
 // Produces: "1st Standard", "2nd Standard", "3rd Standard", "4th Standard", "5th Standard",
 //           "6th Standard", "7th Standard", "8th Standard", "9th Standard", "10th Standard"
 
