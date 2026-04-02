@@ -203,7 +203,11 @@ const loadAnalytics = (filter, groupId) => {
         { value: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
         { value: 'yellow', label: 'Orange', class: 'bg-orange-500' },
     ]
-
+const getOrdinal = (n) => {
+    const s = ["th", "st", "nd", "rd"]
+    const v = n % 100
+    return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
     const getColorClasses = (color) => {
         const colorMap = {
             purple: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200', hover: 'hover:bg-purple-50' },
@@ -371,7 +375,7 @@ const questionData = {
 
     const groupData = {
         
-        name: groupFormData.name,
+        name: groupFormData.name  + ' Standard',
         color: groupFormData.color,
         isDefault: false
     }
@@ -1162,18 +1166,25 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                                 </h3>
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Group Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={groupFormData.name}
-                                            onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
-                                            placeholder="e.g., Weekly Reflection"
-                                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-                                        />
-                                    </div>
+                                   
+                                   <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+        Group Name
+    </label>
+    <select
+        value={groupFormData.name}
+        onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
+        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm bg-white"
+    >
+        <option value="">-- Select a Class --</option>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
+    <option key={num} value={`Class ${getOrdinal(num)}`}>
+        Class {getOrdinal(num)}
+    </option>
+))}
+    </select>
+</div>
+
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
