@@ -35,7 +35,7 @@ export default function AdminPanel({ user, onLogout }) {
   }).filter(item => {
     const role = user?.role;
     if (role === 'SUPER_ADMIN') return true;
-    if (role === 'SCHOOL_ADMIN') return ['users', 'rewards'].includes(item.id);
+    if (role === 'SCHOOL_ADMIN') return ['users'].includes(item.id);
     if (role === 'CONTENT_ADMIN') return ['curriculum'].includes(item.id);
     if (role === 'PSYCHOLOGIST') return ['assessments', 'flagged_chats'].includes(item.id);
     return false;
