@@ -18,7 +18,15 @@ const TAB_ROLE_MAP = {
     content_admin: 'CONTENT_ADMIN',
 }
 
-const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `${n} Standard`)
+// FIX: Use ordinal suffixes so class names are consistent ("1st Standard", "2nd Standard", etc.)
+// This prevents duplicate class cards (e.g. "8 Standard" vs "8th Standard")
+const ordinal = n => {
+    const s = ['th', 'st', 'nd', 'rd'], v = n % 100
+    return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `${ordinal(n)} Standard`)
+// Produces: "1st Standard", "2nd Standard", "3rd Standard", "4th Standard", "5th Standard",
+//           "6th Standard", "7th Standard", "8th Standard", "9th Standard", "10th Standard"
 
 export default function UserManagement({ user }) {
     const [activeTab, setActiveTab] = useState('student')
@@ -115,18 +123,6 @@ export default function UserManagement({ user }) {
         }
     }, [user])
 
-    const DetailItem = ({ icon: Icon, label, value }) => (
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-1.5 bg-purple-50 rounded-lg">
-                    <Icon className="w-4 h-4 text-purple-600" />
-                </div>
-                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400">{label}</p>
-            </div>
-            <p className="text-sm font-semibold text-gray-800 break-words">{value || "N/A"}</p>
-        </div>
-    )
-
     const generatePassword = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
         let pass = ''
@@ -147,7 +143,7 @@ export default function UserManagement({ user }) {
                 section: userToEdit.section || '',
                 school: userToEdit.school || '',
                 parentName: userToEdit.parentName || '',
-                parentPhone: userToEdit.parentEmail || '',   // parentEmail field holds parent phone
+                parentPhone: userToEdit.parentEmail || '',
                 phoneNumber: userToEdit.phoneNumber || '',
                 dateOfBirth: userToEdit.dateOfBirth || '',
                 address: userToEdit.address || '',
@@ -253,12 +249,13 @@ export default function UserManagement({ user }) {
                     className: formData.class || undefined,
                     grade: formData.class || undefined,
                     parentName: formData.parentName || undefined,
-                    parentEmail: formData.parentPhone || undefined,  // stored in parentEmail field on Student
+                    // FIX: parentPhone (parent's phone number) maps to parentEmail field in backend
+                    parentEmail: formData.parentPhone || undefined,
                     dateOfBirth: formData.dateOfBirth || undefined,
                     address: formData.address || undefined,
                     bloodGroup: formData.bloodGroup || undefined,
                     emergencyContact: formData.emergencyContact || undefined,
-                    rollNo: formData.rollNo || undefined,
+                    rollNo: formData.rollNo || undefined,   // FIX: was being sent as undefined due to field name mismatch
                     section: formData.section || undefined,
                 }
                 if (editingUser) {
@@ -484,23 +481,37 @@ export default function UserManagement({ user }) {
                     })()}
                 </div>
             ) : activeTab === 'student' && selectedSchool && !selectedClass ? (
-                /* Class cards */
+                /* Class cards — FIX: group by normalized class name to avoid duplicates */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {(() => {
                         const classesMap = {}
                         users.filter(u => u.role === 'student' && u.school === selectedSchool)
                             .forEach(u => {
-                                const cName = u.class || 'No Class'
+                                // FIX: normalize class name — strip ordinal suffixes for grouping key
+                                // so "8 Standard" and "8th Standard" both map to the same card
+                                const rawClass = u.class || u.className || 'No Class'
+                                // Extract the number and re-build canonical name
+                                const match = rawClass.match(/^(\d+)/)
+                                const cName = match
+                                    ? `${ordinal(parseInt(match[1]))} Standard`
+                                    : rawClass
                                 if (!classesMap[cName]) classesMap[cName] = { count: 0 }
                                 classesMap[cName].count++
                             })
-                        return Object.keys(classesMap).map(cName => (
-                            <div key={cName} onClick={() => setSelectedClass(cName)} className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-md cursor-pointer text-center">
-                                <AcademicCapIcon className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                                <h3 className="text-xl font-bold">{cName}</h3>
-                                <div className="text-xs text-purple-800 bg-purple-100 px-2 py-1 rounded-full inline-block mt-1">{classesMap[cName].count} Students</div>
-                            </div>
-                        ))
+                        // Sort by class number
+                        return Object.keys(classesMap)
+                            .sort((a, b) => {
+                                const na = parseInt(a.match(/\d+/)?.[0] || 0)
+                                const nb = parseInt(b.match(/\d+/)?.[0] || 0)
+                                return na - nb
+                            })
+                            .map(cName => (
+                                <div key={cName} onClick={() => setSelectedClass(cName)} className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-md cursor-pointer text-center">
+                                    <AcademicCapIcon className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                                    <h3 className="text-xl font-bold">{cName}</h3>
+                                    <div className="text-xs text-purple-800 bg-purple-100 px-2 py-1 rounded-full inline-block mt-1">{classesMap[cName].count} Students</div>
+                                </div>
+                            ))
                     })()}
                 </div>
             ) : activeTab === 'schools' ? (
@@ -512,7 +523,7 @@ export default function UserManagement({ user }) {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">School Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact Person</th>
-                                <th className="relative px-6 py-3 font-medium text-gray-500 uppercase">Actions</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -524,9 +535,11 @@ export default function UserManagement({ user }) {
                                         <div className="font-semibold">{school.contactName || '-'}</div>
                                         <div className="text-xs text-gray-400">{school.email || school.contactNumber}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-right text-sm">
-                                        <button onClick={() => handleOpenModal(school)} className="text-indigo-600 mr-3"><PencilIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => handleDeleteUser(school)} className="text-red-600"><TrashIcon className="w-5 h-5" /></button>
+                                    <td className="px-6 py-4 text-sm text-center">
+                                        <div className="flex items-center justify-center gap-3">
+                                            <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -534,7 +547,7 @@ export default function UserManagement({ user }) {
                     </table>
                 </div>
             ) : activeTab === 'student' && selectedSchool && selectedClass ? (
-                /* ── STUDENT TABLE: now shows Class, Section, Parent Phone ── */
+                /* ── STUDENT TABLE with expandable rows ── */
                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -544,47 +557,93 @@ export default function UserManagement({ user }) {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Phone</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredUsers.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                            {u.class || u.className || '—'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            {u.section ? `Section ${u.section}` : '—'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {u.phoneNumber
-                                            ? <span className="flex items-center gap-1"><PhoneIcon className="w-3.5 h-3.5 text-gray-400" />{u.phoneNumber}</span>
-                                            : <span className="text-gray-300">—</span>
-                                        }
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-medium">
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
-                                                <PencilIcon className="w-5 h-5" />
-                                            </button>
-                                            <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filteredUsers.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
-                                </tr>
-                            )}
+                            {/* FIX: match students whose class normalizes to the selected class */}
+                            {filteredUsers
+                                .filter(u => {
+                                    const rawClass = u.class || u.className || ''
+                                    const match = rawClass.match(/^(\d+)/)
+                                    const normalized = match ? `${ordinal(parseInt(match[1]))} Standard` : rawClass
+                                    return normalized === selectedClass
+                                })
+                                .map(u => (
+                                    <React.Fragment key={u.id}>
+                                        <tr
+                                            className="hover:bg-gray-50 cursor-pointer"
+                                            onClick={() => toggleRow(u.id)}
+                                        >
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                <div className="flex items-center gap-2">
+                                                    {expandedRow === u.id
+                                                        ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                        : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                    }
+                                                    {u.name}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                    {u.class || u.className || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {u.section ? `Section ${u.section}` : '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                {u.parentEmail
+                                                    ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                        <PhoneIcon className="w-3 h-3" />{u.parentEmail}
+                                                    </span>
+                                                    : <span className="text-gray-300">—</span>
+                                                }
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
+                                                        <PencilIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {expandedRow === u.id && (
+                                            <tr className="bg-gray-50">
+                                                <td colSpan={6} className="px-8 py-4">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                {u.bloodGroup || '—'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
+                                                            <p className="text-sm font-semibold text-gray-800">{u.rollNo || '—'}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            {filteredUsers.filter(u => {
+                                const rawClass = u.class || u.className || ''
+                                const match = rawClass.match(/^(\d+)/)
+                                const normalized = match ? `${ordinal(parseInt(match[1]))} Standard` : rawClass
+                                return normalized === selectedClass
+                            }).length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                    </tr>
+                                )}
                         </tbody>
                     </table>
                 </div>
@@ -596,17 +655,19 @@ export default function UserManagement({ user }) {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredUsers.map(u => (
-                                <tr key={u.id}>
+                                <tr key={u.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{u.name}</td>
                                     <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                                    <td className="px-6 py-4 text-right text-sm font-medium">
-                                        <button onClick={() => handleOpenModal(u)} className="text-indigo-600 mr-3"><PencilIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => handleDeleteUser(u)} className="text-red-600"><TrashIcon className="w-5 h-5" /></button>
+                                    <td className="px-6 py-4 text-sm text-center">
+                                        <div className="flex items-center justify-center gap-3">
+                                            <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleDeleteUser(u)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -670,20 +731,13 @@ export default function UserManagement({ user }) {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium">Class</label>
-                                                <select
-                                                    value={formData.class}
-                                                    onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-                                                    className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}
-                                                >
+                                                <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
                                                     <option value="">Select Class</option>
-                                                    {CLASS_OPTIONS.map(c => (
-                                                        <option key={c} value={c}>{c}</option>
-                                                    ))}
+                                                    {CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
                                                 {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
                                             </div>
                                         </div>
-
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Section</label>
@@ -702,7 +756,6 @@ export default function UserManagement({ user }) {
                                                 {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
                                             </div>
                                         </div>
-
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Blood Group</label>
@@ -725,7 +778,6 @@ export default function UserManagement({ user }) {
                                                 {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                             </div>
                                         </div>
-
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Password</label>
@@ -741,17 +793,10 @@ export default function UserManagement({ user }) {
                                                 {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
                                             </div>
                                         </div>
-
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Parent Phone Number</label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.parentPhone}
-                                                    onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
-                                                    placeholder="10-digit mobile number"
-                                                    className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`}
-                                                />
+                                                <input type="text" value={formData.parentPhone} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="10-digit mobile number" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`} />
                                                 {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
                                             </div>
                                             {(user?.role === 'SUPER_ADMIN' || editingUser) && (
@@ -765,7 +810,6 @@ export default function UserManagement({ user }) {
                                                 </div>
                                             )}
                                         </div>
-
                                         <div>
                                             <label className="block text-sm font-medium">Address</label>
                                             <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
