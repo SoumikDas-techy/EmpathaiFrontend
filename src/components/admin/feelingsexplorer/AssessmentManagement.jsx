@@ -54,7 +54,8 @@ const isAdmin = currentUser?.role === 'SUPER_ADMIN' ||
 
     const [groupFormData, setGroupFormData] = useState({
         name: '',
-        color: 'purple'
+        color: 'purple',
+        className: ''
     })
  
 const [selectedFilter, setSelectedFilter] = useState('ALL')
@@ -99,16 +100,17 @@ const filterByDate = (student) => {
 
 
 
+const defaultGroups = [
+    { id: 'Daily Check-in', name: 'Daily Check-in', color: 'purple', isDefault: true },
+    { id: 'Class 8th', name: 'Class 8th Standard', color: 'green', isDefault: true },
+    { id: 'Class 9th', name: 'Class 9th Standard', color: 'blue', isDefault: true },
+    { id: 'Class 10th', name: 'Class 10th Standard', color: 'indigo', isDefault: true },
+]
 
 
 useEffect(() => {
 
-    const defaultGroups = [
-        { id: 'Daily Check-in', name: 'Daily Check-in', color: 'purple', isDefault: true },
-        { id: 'Class 8th', name: 'Class 8th Standard', color: 'green', isDefault: true },
-        { id: 'Class 9th', name: 'Class 9th Standard', color: 'blue', isDefault: true },
-        { id: 'Class 10th', name: 'Class 10th Standard', color: 'indigo', isDefault: true },
-    ]
+    
 
     const defaultQuestions = [
         {
@@ -132,21 +134,24 @@ useEffect(() => {
     ]
 
     // Fetch Groups
-   fetchGroups()
+  fetchGroups()
 .then(data => {
     console.log('Groups from API:', data)
     const groupList = Array.isArray(data) ? data : (data?.data || data || [])
-    // Sort by createdAt ascending so newest groups appear last
     const sorted = [...groupList].sort((a, b) => {
         if (!a.createdAt) return -1
         if (!b.createdAt) return 1
         return new Date(a.createdAt) - new Date(b.createdAt)
     })
-    setGroups(sorted)
-}) .catch((err) => {
-            console.error('Groups fetch failed:', err)
-            setGroups(defaultGroups)
-        })
+    // Merge: keep defaults that don't already exist in DB by name
+    const dbNames = new Set(sorted.map(g => g.name))
+    const missingDefaults = defaultGroups.filter(d => !dbNames.has(d.name))
+    setGroups([...missingDefaults, ...sorted])
+})
+.catch((err) => {
+    console.error('Groups fetch failed:', err)
+    setGroups(defaultGroups)
+})
 
     // Fetch Questions
 fetchQuestions(0,50)
@@ -201,7 +206,7 @@ const loadAnalytics = (filter, groupId) => {
         { value: 'red', label: 'Red', class: 'bg-red-500' },
         { value: 'pink', label: 'Pink', class: 'bg-pink-500' },
         { value: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
-        { value: 'yellow', label: 'Orange', class: 'bg-orange-500' },
+        { value: 'orange', label: 'Orange', class: 'bg-orange-500' },
     ]
 const getOrdinal = (n) => {
     const s = ["th", "st", "nd", "rd"]
@@ -263,9 +268,7 @@ const getOptionsArray = (question) => {
     const opts = getOptionsArray(question).map(opt => 
     opt.replace(/^[A-D]-\s*/, '').trim() 
 )
-const grp = Array.isArray(question.groups)
-                ? question.groups
-                : (question.groupMap || '').split(',').map(g => g.trim()).filter(Boolean)
+const grp = question.groupMapId ? [question.groupMapId] : [];
             setQuestionFormData({
                 question: question.questions || '',
                 option1: opts[0] || '',
@@ -287,10 +290,10 @@ const grp = Array.isArray(question.groups)
         }
         setIsQuestionModalOpen(true)
     }
-    const handleOpenGroupModal = () => {
-        setGroupFormData({ name: '', color: 'purple' })
-        setIsGroupModalOpen(true)
-    }
+   const handleOpenGroupModal = () => {
+    setGroupFormData({ name: '', color: 'purple', className: '' })
+    setIsGroupModalOpen(true)
+}
 
 
 
@@ -317,13 +320,11 @@ const grp = Array.isArray(question.groups)
    
 const letters = ['A', 'B', 'C', 'D']
 const formattedOptions = options.map((opt, idx) => `${letters[idx]}- ${opt}`)
-
 const questionData = {
-    questions: questionFormData.question,           
-    options: formattedOptions.join(','), 
-    groupMap: questionFormData.groups.join(',')     
+    questionText: questionFormData.question,
+    options: formattedOptions.join(','),
+    groupMapId: questionFormData.groups.length > 0 ? questionFormData.groups[0] : null
 }
-
     if (editingQuestion) {
         updateQuestion(editingQuestion.id, questionData)
             .then(updated => {
@@ -373,12 +374,18 @@ const questionData = {
         return
     }
 
-    const groupData = {
+    /*const groupData = {
         
         name: groupFormData.name  + ' Standard',
         color: groupFormData.color,
         isDefault: false
-    }
+    }*/
+   const groupData = {
+    name: groupFormData.name + ' Standard',
+    color: groupFormData.color,
+    isDefault: false,
+  className: groupFormData.name  
+}
 
     console.log(' Creating group — sending to DB:', groupData)
 
@@ -419,11 +426,7 @@ const handleDeleteGroup = (groupId) => {
         return
     }
 
-    const hasQuestions = questions.some(q => {
-    if (Array.isArray(q.groups)) return q.groups.includes(groupId)
-    if (typeof q.groupMap === 'string') return q.groupMap.split(',').map(g => g.trim()).includes(groupId)
-    return false
-})
+  const hasQuestions = questions.some(q => String(q.groupMapId) === String(groupId));
     if (hasQuestions) {
         alert('Cannot delete group with existing questions.')
         return
@@ -505,13 +508,29 @@ const handleOptionClick = (question, option) => {
             setIsResponseModalOpen(true)
 
            
-            fetchResponseSheet(groupName)
+          fetchResponses(0, 500)
+    .then(data => {
+        const all = data?.content || data || []
+        const selectedGroupObj = groups.find(g => g.id === selectedGroup)
+        const selectedGroupName = selectedGroupObj?.name || ''
+        const selectedClassName = selectedGroupObj?.className || ''
+        
+        const sheet = all.filter(r => {
+            const rClass = (r.className || '').toLowerCase().trim()
+            const rGroup = (r.groupName || '').toLowerCase().trim()
+            const gName = selectedGroupName.toLowerCase().trim()
+            const gClass = selectedClassName.toLowerCase().trim()
             
-                .then(data => {
-                    const sheet = Array.isArray(data) ? data : data?.content || data || []
-                    setResponseSheet(sheet)
-                })
-                .catch(err => console.error('Sheet refresh error:', err))
+            return rClass === gName ||
+                   rClass === gClass ||
+                   rGroup === gName ||
+                   rGroup === gClass ||
+                   gName.includes(rClass) ||
+                   rClass.includes(gClass)
+        })
+        setResponseSheet(sheet)
+    })
+    .catch(err => console.error('Sheet error:', err))
         })
         .catch(err => {
             console.error('Save error:', err)
@@ -531,23 +550,13 @@ const handleOptionClick = (question, option) => {
         })
 }
 
-   
-const getGroupQuestions = (groupId) => {
-    return questions.filter(q => {
-        if (!q.groups && !q.groupMap) return false
-        if (Array.isArray(q.groups)) return q.groups.map(String).includes(String(groupId))
-        if (typeof q.groupMap === 'string') return q.groupMap.split(',').map(g => g.trim()).includes(String(groupId))
-        return false
-    })
+const getGroupQuestions = (group) => {
+    const groupId = typeof group === 'object' ? group.id : group;
+    return questions.filter(q => String(q.groupMapId) === String(groupId));
 }
-   const filteredQuestions = selectedGroup
-    ? questions.filter(q => {
-        if (!q.groups && !q.groupMap) return false
-        if (Array.isArray(q.groups)) return q.groups.map(String).includes(String(selectedGroup))
-        if (typeof q.groupMap === 'string') return q.groupMap.split(',').map(g => g.trim()).includes(String(selectedGroup))
-        return false
-    })
-    : questions
+  const filteredQuestions = selectedGroup
+    ? questions.filter(q => String(q.groupMapId) === String(selectedGroup))
+    : questions;
     const searchedQuestions = filteredQuestions.filter(q => {
         if (!searchTerm) return true
         const text = q.questions || q.question || q.text || ''
@@ -635,9 +644,13 @@ const getStudentAnswer = (studentId, questionId) => {
     return `${letter} - ${fullAnswer}`
 }
 
-const filteredSheet = Array.isArray(responseSheet)
-    ? responseSheet.filter(s => matchesGender(s) && filterByDate(s))
-    : []
+const sheetStudents = Array.from(
+    new Map(
+        (Array.isArray(responseSheet) ? responseSheet : [])
+            .map(r => [r.studentId, r])
+    ).values()
+)
+const filteredSheet = sheetStudents.filter(s => matchesGender(s) && filterByDate(s))
     return (
         <div>
             {/* Header */}
@@ -678,7 +691,7 @@ const filteredSheet = Array.isArray(responseSheet)
                 <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Question Groups</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {groups.map((group) => {
-                        const questionCount = getGroupQuestions(group.id).length
+                        const questionCount = getGroupQuestions(group).length
                         const colors = getColorClasses(group.color)
                         const isSelected = selectedGroup === group.id
 
@@ -1080,7 +1093,7 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                     <th className="border px-4 py-2 text-left">Field</th>
                     {filteredSheet.map((student, index) => (
                         <th key={student.studentId || index} className="border px-4 py-2">
-                            S{index + 1}
+                            R{index + 1}
                         </th>
                     ))}
                 </tr>
@@ -1119,12 +1132,7 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                     ))}
                 </tr>
              {questions
-    .filter(q => {
-    if (!q.groups && !q.groupMap) return false
-    if (Array.isArray(q.groups)) return q.groups.map(String).includes(String(selectedGroup))
-    if (typeof q.groupMap === 'string') return q.groupMap.split(',').map(g => g.trim()).includes(String(selectedGroup))
-    return false
-})
+    .filter(q => String(q.groupMapId) === String(selectedGroup))
                     .map((question, qIndex) => (
                     <tr key={question.id}>
                         <td className="border px-4 py-2 font-medium">
@@ -1138,6 +1146,7 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
         (r.questionId === question.id ||
          r.questionText?.toLowerCase().trim() === questionText.toLowerCase().trim())
     )?.responseValue || '-'
+    
     return (
         <td key={i} className="border px-4 py-2 text-center">
             {ans}
