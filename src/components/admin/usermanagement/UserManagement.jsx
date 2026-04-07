@@ -80,7 +80,6 @@ export default function UserManagement({ user }) {
                     ...u,
                     role: 'student',
                     class: u.className,
-                    license: u.licenseId,
                 })))
             } else if (activeTab === 'school_admin') {
                 result = await getSchoolAdmins(opts)
@@ -838,12 +837,6 @@ export default function UserManagement({ user }) {
                                             </div>
                                             {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                         </div>
-                                        {activeTab === 'psychologist' && (
-                                            <div>
-                                                <label className="block text-sm font-medium">License ID</label>
-                                                <input type="text" value={formData.licenseId} onChange={(e) => setFormData({ ...formData, licenseId: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
-                                            </div>
-                                        )}
                                         {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
                                             <div className="mt-4">
                                                 <label className="block text-sm font-medium">School</label>
