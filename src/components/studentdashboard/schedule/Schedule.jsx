@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { addTask, editTask, deleteTask, toggleTaskComplete, getWeekTasks } from '../../../api/scheduleApi.js'
 import {
     CalendarIcon, PlusIcon, TrashIcon, CheckCircleIcon,
     ArrowRightIcon, ChevronDownIcon, ChevronUpIcon,
@@ -58,7 +59,7 @@ function AIAgent({ tasks, setTasks, activeDay, setActiveDay, externalOpen, setEx
             const dt = tasks[day]
             if (!dt.length) return `${day}: (empty)`
             return `${day}:\n` + dt.map(t =>
-                `  - [id:${t.id}] "${t.title}" ${t.startTime}→${t.endTime} [${t.type}]${t.completed ? ' ✓done' : ''}${t.notes ? ` notes:"${t.notes}"` : ''}`
+                `  - [id:${t.id}] "${t.title}" ${t.startTime}→${t.endTime} [${t.detectedType || 'OTHER'}]${t.completed ? ' ✓done' : ''}${t.notes ? ` notes:"${t.notes}"` : ''}`
             ).join('\n')
         }).join('\n')
 
@@ -72,9 +73,9 @@ RULES:
 - JSON format: { "message": "friendly reply", "actions": [ ...array of actions or empty ] }
 
 ACTION TYPES:
-{ "type": "add", "day": "Monday", "task": { "title": "...", "startTime": "HH:MM", "endTime": "HH:MM", "type": "Study|Wellness|Other", "notes": "" } }
+{ "type": "add", "day": "Monday", "task": { "title": "...", "startTime": "HH:MM", "endTime": "HH:MM", "notes": "" } }
 { "type": "delete", "day": "Monday", "taskId": 123 }
-{ "type": "edit", "day": "Monday", "taskId": 123, "changes": { "title":"...", "startTime":"HH:MM", "endTime":"HH:MM", "type":"...", "notes":"..." } }
+{ "type": "edit", "day": "Monday", "taskId": 123, "changes": { "title":"...", "startTime":"HH:MM", "endTime":"HH:MM", "notes":"..." } }
 { "type": "complete", "day": "Monday", "taskId": 123, "completed": true }
 { "type": "move", "fromDay": "Monday", "toDay": "Tuesday", "taskId": 123, "newStartTime": "HH:MM", "newEndTime": "HH:MM" }
 { "type": "clearDay", "day": "Monday" }
@@ -86,9 +87,6 @@ SMART TIME RULES:
 - Default duration: 1h general, 30min breaks, 90min gym/workout, 2h deep study
 - "today" = ${activeDay}, "tomorrow" = ${days[(days.indexOf(activeDay) + 1) % 7]}
 - NEVER schedule overlapping tasks — pick next free slot if conflict
-- Study/homework/revision/class/reading → "Study"
-- Gym/yoga/walk/run/meditation/meal/sleep/exercise → "Wellness"
-- Everything else → "Other"
 - Be warm, encouraging, use 1-2 emojis max in message
 - If request is unclear, ask for clarification with actions=[]`
     }
@@ -99,7 +97,7 @@ SMART TIME RULES:
             days.forEach(d => { updated[d] = [...(prev[d] || [])] })
             for (const a of actions) {
                 if (a.type === 'add') {
-                    updated[a.day] = [...updated[a.day], { ...a.task, id: Date.now() + Math.random(), completed: false }]
+                    updated[a.day] = [...updated[a.day], { ...a.task, id: Date.now() + Math.random(), completed: false, detectedType: 'OTHER' }]
                 } else if (a.type === 'delete') {
                     updated[a.day] = updated[a.day].filter(t => t.id !== a.taskId)
                 } else if (a.type === 'edit') {
@@ -334,9 +332,9 @@ SMART TIME RULES:
     )
 }
 
-export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
+export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, user }) {
     const [showAddTask, setShowAddTask] = useState(false)
-    const [newTask, setNewTask] = useState({ startTime: '09:00', endTime: '10:00', title: '', type: 'Study', notes: '' })
+    const [newTask, setNewTask] = useState({ startTime: '09:00', endTime: '10:00', title: '', notes: '' })
     const [overlapError, setOverlapError] = useState('')
     const [showPushModal, setShowPushModal] = useState(false)
     const [pushNonConflicts, setPushNonConflicts] = useState([])
@@ -349,8 +347,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
     const [editData, setEditData] = useState({})
     const [editError, setEditError] = useState('')
     const [openAgent, setOpenAgent] = useState(false)
+    const [addWarnings, setAddWarnings] = useState([])
+    const [editWarnings, setEditWarnings] = useState([])
+    const [isSaving, setIsSaving] = useState(false)
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    // ✅ REMOVED: mapGradeToClass function - backend handles this
+    // ✅ REMOVED: studyCapMap hardcoded caps - backend has these in database
 
     const normaliseTask = (task) => {
         if (task.startTime) return task
@@ -390,6 +394,9 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
     const tHrs = Math.floor(tMins / 60)
     const tMin = tMins % 60
 
+    // ✅ REMOVED: Frontend study cap calculation - backend handles this via Rule 2
+    // ✅ REMOVED: Frontend wellness warning logic - backend handles this via Rule 8
+
     const typeColors = {
         Study: { bg: 'bg-blue-500', light: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
         Wellness: { bg: 'bg-emerald-500', light: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
@@ -405,32 +412,116 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
         return true
     }
 
-    const handleAdd = () => {
+    const handleAdd = async () => {
         setOverlapError('')
+        setAddWarnings([])
         if (!newTask.title || !newTask.startTime || !newTask.endTime) return
-        if (toMins(newTask.endTime) <= toMins(newTask.startTime)) { setOverlapError('End time must be after start time.'); return }
-        if (hasOverlap(activeDay, newTask.startTime, newTask.endTime)) { setOverlapError('This time slot overlaps with an existing task.'); return }
-        setTasks({ ...tasks, [activeDay]: [...tasks[activeDay], { ...newTask, id: Date.now(), completed: false }] })
-        setNewTask({ startTime: '09:00', endTime: '10:00', title: '', type: 'Study', notes: '' })
-        setShowAddTask(false)
+        if (toMins(newTask.endTime) <= toMins(newTask.startTime)) {
+            setOverlapError('End time must be after start time.')
+            return
+        }
+        setIsSaving(true)
+        try {
+            const saved = await addTask(
+                user.id,
+                activeDay,
+                newTask.title,
+                newTask.startTime,
+                newTask.endTime,
+                newTask.notes
+            )
+            // saved is the TaskResponse from backend with detectedType and warnings
+            setTasks(prev => ({
+                ...prev,
+                [activeDay]: [...prev[activeDay], { ...saved, completed: false }]
+            }))
+            if (saved.warnings && saved.warnings.length > 0) {
+                setAddWarnings(saved.warnings)
+                // keep modal open briefly to show warnings, then close after 3s
+                setTimeout(() => {
+                    setAddWarnings([])
+                    setShowAddTask(false)
+                    setNewTask({ startTime: '09:00', endTime: '10:00', title: '', notes: '' })
+                }, 3000)
+            } else {
+                setNewTask({ startTime: '09:00', endTime: '10:00', title: '', notes: '' })
+                setShowAddTask(false)
+            }
+        } catch (err) {
+            setOverlapError(err.message || 'Could not save task. Please try again.')
+        } finally {
+            setIsSaving(false)
+        }
     }
 
-    const handleDelete = (e, id) => { e.stopPropagation(); setTasks({ ...tasks, [activeDay]: tasks[activeDay].filter(t => t.id !== id) }); if (expandedTask === id) setExpandedTask(null) }
-    const toggleDone = (id) => setTasks({ ...tasks, [activeDay]: tasks[activeDay].map(t => t.id === id ? { ...t, completed: !t.completed } : t) })
+    const handleDelete = async (e, id) => {
+        e.stopPropagation()
+        try {
+            await deleteTask(id)
+            setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].filter(t => t.id !== id) }))
+            if (expandedTask === id) setExpandedTask(null)
+        } catch (err) {
+            console.error('Delete failed:', err.message)
+        }
+    }
+
+    const toggleDone = async (id) => {
+        try {
+            const saved = await toggleTaskComplete(id)
+            setTasks(prev => ({
+                ...prev,
+                [activeDay]: prev[activeDay].map(t => t.id === id ? { ...t, completed: saved.completed } : t)
+            }))
+        } catch (err) {
+            console.error('Toggle failed:', err.message)
+        }
+    }
 
     const openEdit = (e, task) => {
         e.stopPropagation()
         setEditingTask(task)
-        setEditData({ title: task.title, startTime: task.startTime, endTime: task.endTime, type: task.type, notes: task.notes || '' })
+        setEditData({ title: task.title, startTime: task.startTime, endTime: task.endTime, notes: task.notes || '' })
         setEditError('')
+        setEditWarnings([])
     }
-    const saveEdit = () => {
+
+    const saveEdit = async () => {
         setEditError('')
+        setEditWarnings([])
         if (!editData.title || !editData.startTime || !editData.endTime) return
-        if (toMins(editData.endTime) <= toMins(editData.startTime)) { setEditError('End time must be after start time.'); return }
-        if (hasOverlap(activeDay, editData.startTime, editData.endTime, editingTask.id)) { setEditError('Overlaps with another task.'); return }
-        setTasks({ ...tasks, [activeDay]: tasks[activeDay].map(t => t.id === editingTask.id ? { ...t, ...editData } : t) })
-        setEditingTask(null)
+        if (toMins(editData.endTime) <= toMins(editData.startTime)) {
+            setEditError('End time must be after start time.')
+            return
+        }
+        setIsSaving(true)
+        try {
+            const saved = await editTask(
+                editingTask.id,
+                user.id,
+                activeDay,
+                editData.title,
+                editData.startTime,
+                editData.endTime,
+                editData.notes
+            )
+            setTasks(prev => ({
+                ...prev,
+                [activeDay]: prev[activeDay].map(t => t.id === editingTask.id ? { ...t, ...saved } : t)
+            }))
+            if (saved.warnings && saved.warnings.length > 0) {
+                setEditWarnings(saved.warnings)
+                setTimeout(() => {
+                    setEditWarnings([])
+                    setEditingTask(null)
+                }, 3000)
+            } else {
+                setEditingTask(null)
+            }
+        } catch (err) {
+            setEditError(err.message || 'Could not save changes. Please try again.')
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const initPush = () => {
@@ -500,6 +591,10 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                             <span key={m} className={`absolute text-[10px] font-bold -translate-x-1/2 ${pct >= m ? 'text-green-500' : 'text-gray-300'}`} style={{ left: `${m}%` }}>{m}%</span>
                         ))}
                     </div>
+
+                    {/* ✅ REMOVED: Frontend study cap progress bar - backend validates this */}
+
+                    {/* Star Rating */}
                     <div className="mt-3 pt-3 border-t border-violet-100 flex items-center gap-3 flex-wrap">
                         <span className="text-xs font-black text-gray-500">Rate your day:</span>
                         <div className="flex gap-1">
@@ -523,7 +618,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                             return (
                                 <button key={day} onClick={() => setActiveDay(day)}
                                     className={`group w-full text-left px-4 py-3 rounded-xl font-bold transition-all ${isActive ? 'bg-white text-black border-2 border-violet-500 shadow-lg shadow-violet-100'
-                                            : 'text-black hover:bg-[#f3f0fb] hover:text-black border-2 border-transparent'
+                                        : 'text-black hover:bg-[#f3f0fb] hover:text-black border-2 border-transparent'
                                         }`}>
                                     <div className="flex justify-between items-center mb-1">
                                         <span>{day}</span>
@@ -551,7 +646,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                                         <ArrowRightIcon className="w-4 h-4" />Push {incomplete} to {nextDay}
                                     </button>
                                 )}
-                                <button onClick={() => { setShowAddTask(true); setOverlapError('') }}
+                                <button onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
                                     className="bg-black text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all flex items-center gap-2">
                                     <PlusIcon className="w-4 h-4" />Add Activity
                                 </button>
@@ -572,21 +667,25 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                         ) : (
                             <div className="space-y-3">
                                 {sorted.map(task => {
-                                    const colors = typeColors[task.type] || typeColors.Other
+                                    // ✅ USE BACKEND detectedType instead of frontend calculation
+                                    const detectedType = task.detectedType
+                                        ? task.detectedType.charAt(0).toUpperCase() + task.detectedType.slice(1).toLowerCase()
+                                        : 'Other'
+                                    const colors = typeColors[detectedType] || typeColors.Other
                                     const overdue = isOverdue(task)
                                     const dur = getDur(task.startTime, task.endTime)
                                     const isExp = expandedTask === task.id
                                     const hasNote = task.notes?.trim().length > 0
                                     return (
                                         <div key={task.id} className={`border-2 rounded-xl transition-all duration-300 ${task.completed
-                                                ? 'bg-gray-50 border-gray-200'
-                                                : `bg-white ${colors.border}`
+                                            ? 'bg-gray-50 border-gray-200'
+                                            : `bg-white ${colors.border}`
                                             }`}>
                                             <div className="group flex items-center gap-3 p-4 cursor-pointer hover:opacity-90" onClick={() => toggleDone(task.id)}>
                                                 <button onClick={e => { e.stopPropagation(); toggleDone(task.id) }}
                                                     className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.completed
-                                                            ? 'bg-green-500 border-green-500 text-white'
-                                                            : 'border-gray-300 bg-white opacity-70 group-hover:opacity-100'
+                                                        ? 'bg-green-500 border-green-500 text-white'
+                                                        : 'border-gray-300 bg-white opacity-70 group-hover:opacity-100'
                                                         }`}>
                                                     {task.completed && <CheckCircleIcon className="w-5 h-5" />}
                                                 </button>
@@ -595,12 +694,12 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start gap-2">
                                                         <h3 className={`font-bold text-lg ${task.completed
-                                                                ? 'text-gray-400'
-                                                                : 'text-black'
+                                                            ? 'text-gray-400'
+                                                            : 'text-black'
                                                             }`}>{task.title}</h3>
                                                         <div className="flex items-center gap-1.5 flex-shrink-0">
                                                             {overdue && !task.completed && (
-                                                                <span className="text-xs bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">
+                                                                <span className="text-xs bg-red-100 text-red-600 font-black px-2 py-0.5 rounded-full border border-red-200">
                                                                     ⏰ Overdue
                                                                 </span>
                                                             )}
@@ -610,7 +709,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                                                                 </span>
                                                             )}
                                                             <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide ${task.completed ? 'bg-gray-100 text-gray-400' : `${colors.light} ${colors.text}`
-                                                                }`}>{task.type}</span>
+                                                                }`}>{detectedType}</span>
                                                         </div>
                                                     </div>
                                                     <p className={`text-sm font-medium mt-0.5 ${task.completed ? 'text-gray-400' : 'text-gray-500'
@@ -660,20 +759,27 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                                 <TimeSelect label="End Time" value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Type</label>
-                                <select value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })} className="w-full px-4 py-2 rounded-xl border-2 border-gray-100 focus:border-violet-200 outline-none">
-                                    <option value="Study">Study 📚</option><option value="Wellness">Wellness 🧘</option><option value="Other">Other ⚡</option>
-                                </select>
-                            </div>
-                            <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Notes <span className="text-gray-400 font-medium">(optional)</span></label>
                                 <textarea value={editData.notes} onChange={e => setEditData({ ...editData, notes: e.target.value })} rows={3} className="w-full px-4 py-2 rounded-xl border-2 border-gray-100 focus:border-violet-200 outline-none resize-none text-sm" />
                             </div>
-                            {editError && <div className="bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2 text-red-600 text-sm font-medium">⚠️ {editError}</div>}
+                            {editError && (
+                                <div className="bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2 text-red-600 text-sm font-medium">
+                                    ⚠️ {editError}
+                                </div>
+                            )}
+                            {/* ✅ BACKEND WARNINGS DISPLAY */}
+                            {editWarnings.length > 0 && (
+                                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl px-4 py-2 text-amber-700 text-sm font-medium space-y-1">
+                                    {editWarnings.map((w, i) => <p key={i}>⚠️ {w}</p>)}
+                                    <p className="text-xs text-amber-500 font-normal">Changes saved — closing in a moment...</p>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-3 mt-6">
                             <button onClick={() => setEditingTask(null)} className="flex-1 px-4 py-2 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-                            <button onClick={saveEdit} disabled={!editData.title} className="flex-1 bg-black text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">Save Changes</button>
+                            <button onClick={saveEdit} disabled={!editData.title || isSaving} className="flex-1 bg-black text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                                {isSaving ? 'Saving...' : 'Save Changes'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -694,26 +800,33 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay }) {
                                 <TimeSelect label="End Time" value={newTask.endTime} onChange={v => setNewTask({ ...newTask, endTime: v })} />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Type</label>
-                                <select value={newTask.type} onChange={e => setNewTask({ ...newTask, type: e.target.value })} className="w-full px-4 py-2 rounded-xl border-2 border-gray-100 focus:border-violet-200 outline-none">
-                                    <option value="Study">Study 📚</option><option value="Wellness">Wellness 🧘</option><option value="Other">Other ⚡</option>
-                                </select>
-                            </div>
-                            <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Notes <span className="text-gray-400 font-medium">(optional)</span></label>
                                 <textarea value={newTask.notes} onChange={e => setNewTask({ ...newTask, notes: e.target.value })} rows={2} className="w-full px-4 py-2 rounded-xl border-2 border-gray-100 focus:border-violet-200 outline-none resize-none text-sm" />
                             </div>
-                            {overlapError && <div className="bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2 text-red-600 text-sm font-medium">⚠️ {overlapError}</div>}
+                            {overlapError && (
+                                <div className="bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2 text-red-600 text-sm font-medium">
+                                    ⚠️ {overlapError}
+                                </div>
+                            )}
+                            {/* ✅ BACKEND WARNINGS DISPLAY */}
+                            {addWarnings.length > 0 && (
+                                <div className="bg-amber-50 border-2 border-amber-200 rounded-xl px-4 py-2 text-amber-700 text-sm font-medium space-y-1">
+                                    {addWarnings.map((w, i) => <p key={i}>⚠️ {w}</p>)}
+                                    <p className="text-xs text-amber-500 font-normal">Task saved — closing in a moment...</p>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-3 mt-6">
-                            <button onClick={() => { setShowAddTask(false); setOverlapError('') }} className="flex-1 px-4 py-2 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
-                            <button onClick={handleAdd} disabled={!newTask.title} className="flex-1 bg-black text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">Add Plan</button>
+                            <button onClick={() => { setShowAddTask(false); setOverlapError(''); setAddWarnings([]) }} className="flex-1 px-4 py-2 rounded-xl font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
+                            <button onClick={handleAdd} disabled={!newTask.title || isSaving} className="flex-1 bg-black text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                                {isSaving ? 'Saving...' : 'Add Plan'}
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Push Modal */}
+            {/* Push Modal (unchanged) */}
             {showPushModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-amber-200 shadow-xl max-h-[90vh] overflow-y-auto">

@@ -30,6 +30,7 @@ import Activities from "./studentdashboard/activity/Activities";
 
 import Questionnaire from './studentdashboard/assessment/Questionnaire';
 import Schedule from './studentdashboard/schedule/Schedule';
+import { getWeekTasks } from '../api/scheduleApi.js';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview')
@@ -42,19 +43,17 @@ export default function Dashboard({ user, onLogout }) {
 
   const [showBreathing, setShowBreathing] = useState(false)
   const [activeDay, setActiveDay] = useState('Monday')
-  const [tasks, setTasks] = useState({
-    'Monday': [
-      { id: 1, time: '09:00 AM', title: 'Mathematics - Rational Numbers', type: 'Study', completed: false },
-      { id: 2, time: '11:00 AM', title: 'Box Breathing Session', type: 'Wellness', completed: true },
-      { id: 3, time: '04:00 PM', title: 'Science Project Research', type: 'Study', completed: false },
-    ],
-    'Tuesday': [],
-    'Wednesday': [],
-    'Thursday': [],
-    'Friday': [],
-    'Saturday': [],
-    'Sunday': []
-  })
+
+  // ── Tasks state ────────────────────────────────────────────────────────────
+  const emptyWeek = {
+    'Monday': [], 'Tuesday': [], 'Wednesday': [],
+    'Thursday': [], 'Friday': [], 'Saturday': [], 'Sunday': []
+  }
+  const [tasks, setTasks] = useState(emptyWeek)
+  const [tasksLoading, setTasksLoading] = useState(false)
+  const [tasksError, setTasksError] = useState('')
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false)
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false)
 
@@ -63,6 +62,33 @@ export default function Dashboard({ user, onLogout }) {
     { id: 2, title: '7-Day Streak! 🔥', time: '1 hour ago', type: 'achievement', read: false },
     { id: 3, title: 'Dr. Sarah replied to you', time: '2 hours ago', type: 'social', read: true },
   ])
+
+  // ── Load full week tasks from backend on mount ─────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return
+
+    const loadTasks = async () => {
+      setTasksLoading(true)
+      setTasksError('')
+      try {
+        const weekData = await getWeekTasks(user.id)
+        // weekData is { Monday: [...], Tuesday: [...], ... }
+        // merge with emptyWeek so all 7 days always exist
+        setTasks({
+          ...emptyWeek,
+          ...weekData
+        })
+      } catch (err) {
+        console.error('Failed to load schedule:', err.message)
+        setTasksError('Could not load your schedule. Please refresh.')
+      } finally {
+        setTasksLoading(false)
+      }
+    }
+
+    loadTasks()
+  }, [user?.id])
+  // ──────────────────────────────────────────────────────────────────────────
 
   const toggleTaskComplete = (day, taskId) => {
     setTasks({
@@ -91,7 +117,6 @@ export default function Dashboard({ user, onLogout }) {
     const query = searchQuery.toLowerCase().trim()
     if (!query) return
 
-    // Mapping keywords to tab IDs
     const searchMap = {
       'overview': 'overview',
       'home': 'overview',
@@ -121,7 +146,6 @@ export default function Dashboard({ user, onLogout }) {
       'play': 'activities'
     }
 
-    // Try to find a match in the mapping
     const matchedKey = Object.keys(searchMap).find(key => query.includes(key))
     if (matchedKey) {
       setActiveTab(searchMap[matchedKey])
@@ -129,7 +153,6 @@ export default function Dashboard({ user, onLogout }) {
       return
     }
 
-    // Fallback: check sidebar items names directly
     const match = sidebarItems.find(item =>
       item.name.toLowerCase().includes(query) ||
       item.id.toLowerCase().includes(query)
@@ -195,7 +218,6 @@ export default function Dashboard({ user, onLogout }) {
               <span className="text-yellow-700 font-bold text-sm">385 XP</span>
             </div>
 
-            {/* Calendar Icon */}
             {/* Calendar Icon - Daily Schedule Tracker */}
             <div className="relative group">
               <CalendarIcon
@@ -223,7 +245,7 @@ export default function Dashboard({ user, onLogout }) {
                         </button>
                         <div className="flex-1">
                           <p className={`text-xs font-bold ${task.completed ? 'text-gray-400' : 'text-black'}`}>{task.title}</p>
-                          <p className="text-[10px] text-gray-400">{task.time}</p>
+                          <p className="text-[10px] text-gray-400">{task.startTime} → {task.endTime}</p>
                         </div>
                       </div>
                     ))}
@@ -247,7 +269,6 @@ export default function Dashboard({ user, onLogout }) {
               className="w-6 h-6 text-gray-400 hover:text-primary cursor-pointer transition-colors"
             />
 
-            {/* Notification Bell */}
             {/* Notification Bell */}
             <div className="relative group">
               <BellIcon
@@ -342,7 +363,26 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'overview' && <Overview user={user} setActiveTab={setActiveTab} />}
           {activeTab === 'chatbuddy' && <ChatBuddy user={user} initialMessage={chatMessage} setChatMessage={setChatMessage} />}
           {activeTab === 'curriculum' && <Curriculum user={user} setActiveTab={setActiveTab} navigateToChat={navigateToChat} />}
-          {activeTab === 'schedule' && <Schedule user={user} tasks={tasks} setTasks={setTasks} activeDay={activeDay} setActiveDay={setActiveDay} />}
+          {activeTab === 'schedule' && (
+            tasksLoading ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
+                <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-500 rounded-full animate-spin" />
+                <p className="text-gray-500 font-medium text-sm">Loading your schedule...</p>
+              </div>
+            ) : tasksError ? (
+              <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-6 py-4 text-red-600 font-medium text-sm text-center">
+                ⚠️ {tasksError}
+              </div>
+            ) : (
+              <Schedule
+                user={user}
+                tasks={tasks}
+                setTasks={setTasks}
+                activeDay={activeDay}
+                setActiveDay={setActiveDay}
+              />
+            )
+          )}
           {activeTab === 'questionnaire' && <Questionnaire user={user} />}
           {activeTab === 'activities' && <Activities user={user} />}
         </main>
@@ -372,6 +412,7 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         </div>
       )}
+
       {/* Daily Check-in Modal */}
       {showDailyCheckin && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -500,7 +541,6 @@ export default function Dashboard({ user, onLogout }) {
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">📅 Your Schedule</h3>
-
         <div className="space-y-4">
           {events.map((event, i) => (
             <div key={i} className="bg-purple-50 p-4 rounded-lg border border-purple-200">
@@ -517,7 +557,6 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           ))}
         </div>
-
         <button className="w-full mt-6 bg-black text-white py-2 rounded-lg hover:bg-gray-800">
           View Full Calendar
         </button>
@@ -544,13 +583,10 @@ export default function Dashboard({ user, onLogout }) {
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🎁 Rewards Store</h3>
-
         <div className="mb-6 text-center">
           <p className="text-gray-600">Your XP Balance:</p>
           <p className="text-3xl font-bold text-yellow-600">385 XP</p>
         </div>
-
-        {/* Badges Section */}
         <div className="mb-6">
           <h4 className="font-semibold text-gray-900 mb-3">🏆 Your Badges</h4>
           <div className="grid grid-cols-2 gap-3">
@@ -585,7 +621,7 @@ export default function Dashboard({ user, onLogout }) {
       {
         id: 2,
         title: 'Reminder: Daily Check-in',
-        message: 'Don\'t forget to log your mood today',
+        message: "Don't forget to log your mood today",
         time: '1 day ago',
         type: 'reminder',
         read: true
@@ -603,7 +639,6 @@ export default function Dashboard({ user, onLogout }) {
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔔 Notifications</h3>
-
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {notifications.map((notif) => (
             <div key={notif.id} className={`p-4 rounded-lg border ${!notif.read
@@ -619,7 +654,6 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           ))}
         </div>
-
         <button className="w-full mt-4 bg-black text-white py-2 rounded-lg hover:bg-gray-800">
           Mark All as Read
         </button>
@@ -669,7 +703,7 @@ function Overview({ user, setActiveTab }) {
               <h3 className="text-base font-black text-dark-navy mb-1">{ach.title}</h3>
               <p className="text-[11px] text-gray-500 font-medium">{ach.desc}</p>
               <div className="mt-3 pt-3 border-t border-purple-100 flex items-center justify-between">
-                <span className={`text-[9px] font-black uppercase tracking-widest ${ach.id === 'milestone' ? 'text-purple-600' : ach.textColor}`}>Achievement</span>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${ach.textColor}`}>Achievement</span>
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
               </div>
             </div>
@@ -714,7 +748,7 @@ function Overview({ user, setActiveTab }) {
 
               <div className="mb-4 relative z-10 px-1">
                 <div className="bg-purple-50 rounded-full h-1 overflow-hidden">
-                  <div className={`bg-green-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]`} style={{ width: `${subject.progress}%` }}></div>
+                  <div className="bg-green-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${subject.progress}%` }}></div>
                 </div>
               </div>
 

@@ -844,7 +844,7 @@ export default function UserManagement({ user }) {
                                                 <input type="text" value={formData.licenseId} onChange={(e) => setFormData({ ...formData, licenseId: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
                                             </div>
                                         )}
-                                        {(activeTab === 'school_admin' || activeTab === 'content_admin') && user?.role === 'SUPER_ADMIN' && (
+                                        {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
                                             <div className="mt-4">
                                                 <label className="block text-sm font-medium">School</label>
                                                 <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
