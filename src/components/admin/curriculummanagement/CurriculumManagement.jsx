@@ -16,6 +16,16 @@ import {
 
 const CLASS_LEVELS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
 
+const SUBJECT_OPTIONS = [
+    'Mathematics',
+    'Science',
+    'English',
+    'Social Studies',
+    'Hindi',
+    'Art & Craft'
+    
+]
+
 function splitObjectives(raw) {
     if (!raw) return []
     if (Array.isArray(raw)) return raw.filter(o => o && o.trim())
@@ -119,9 +129,9 @@ function TabScroller({ tabs, currentTab, onTabChange }) {
     )
 }
 
-// ── Class Level Dropdown ──────────────────────────────
+// ── Generic Dropdown (reused for both Subject and Class Level) ────
 
-function ClassLevelDropdown({ value, onChange }) {
+function SelectDropdown({ value, onChange, options, placeholder = 'Select...' }) {
     const [open, setOpen] = useState(false)
     const ref = useRef(null)
 
@@ -133,23 +143,100 @@ function ClassLevelDropdown({ value, onChange }) {
 
     return (
         <div ref={ref} className="relative">
-            <button type="button" onClick={() => setOpen(o => !o)}
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
                 className={`w-full flex items-center justify-between rounded-lg py-2.5 px-3 text-sm transition-all outline-none border
-                    ${open ? 'border-purple-500 shadow-[0_0_0_3px_rgba(147,51,234,0.15)] bg-white' : 'border-gray-300 bg-white hover:border-purple-400'}`}>
-                <span className="font-medium">{value}</span>
+                    ${open
+                        ? 'border-purple-500 shadow-[0_0_0_3px_rgba(147,51,234,0.15)] bg-white'
+                        : 'border-gray-300 bg-white hover:border-purple-400'
+                    } ${!value ? 'text-gray-400' : 'text-gray-800 font-medium'}`}
+            >
+                <span>{value || placeholder}</span>
                 <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
+
             {open && (
                 <div className="absolute z-50 mt-1.5 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="p-1.5 max-h-56 overflow-y-auto">
-                        {CLASS_LEVELS.map(lvl => {
-                            const label = `${lvl} Standard`
-                            const isSelected = value === label
+                        {options.map(opt => {
+                            const isSelected = value === opt
                             return (
-                                <button key={lvl} type="button" onClick={() => { onChange(label); setOpen(false) }}
+                                <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => { onChange(opt); setOpen(false) }}
                                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all
-                                        ${isSelected ? 'bg-purple-600 text-white' : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'}`}>
-                                    <span>{label}</span>
+                                        ${isSelected
+                                            ? 'bg-purple-600 text-white'
+                                            : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'
+                                        }`}
+                                >
+                                    <span>{opt}</span>
+                                    {isSelected && <CheckIcon className="w-4 h-4 text-white" />}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ── Class Level Dropdown (uses SelectDropdown) ────────
+
+function ClassLevelDropdown({ value, onChange }) {
+    const classOptions = CLASS_LEVELS.map(l => `${l} Standard`)
+    return <SelectDropdown value={value} onChange={onChange} options={classOptions} placeholder="Select class level..." />
+}
+
+// ── Subject Name Dropdown (uses SelectDropdown) ───────
+
+function SubjectNameDropdown({ value, onChange, hasError }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef(null)
+
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [])
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={`w-full flex items-center justify-between rounded-lg py-2.5 px-3 text-sm transition-all outline-none border
+                    ${hasError
+                        ? 'border-red-400 bg-red-50'
+                        : open
+                            ? 'border-purple-500 shadow-[0_0_0_3px_rgba(147,51,234,0.15)] bg-white'
+                            : 'border-gray-300 bg-white hover:border-purple-400'
+                    } ${!value ? 'text-gray-400' : 'text-gray-800 font-medium'}`}
+            >
+                <span>{value || 'Select a subject...'}</span>
+                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <div className="absolute z-50 mt-1.5 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div className="p-1.5">
+                        {SUBJECT_OPTIONS.map(subject => {
+                            const isSelected = value === subject
+                            return (
+                                <button
+                                    key={subject}
+                                    type="button"
+                                    onClick={() => { onChange(subject); setOpen(false) }}
+                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all
+                                        ${isSelected
+                                            ? 'bg-purple-600 text-white'
+                                            : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'
+                                        }`}
+                                >
+                                    <span>{subject}</span>
                                     {isSelected && <CheckIcon className="w-4 h-4 text-white" />}
                                 </button>
                             )
@@ -329,7 +416,7 @@ function SubTopicContent({ subTopic, onEdit, onDelete, syllabus }) {
     )
 }
 
-// ── Quiz Builder helpers ──────────────────────────────
+// ── Quiz Builder ──────────────────────────────────────
 
 function QuizBuilder({ quiz, quizErrors, onAdd, onRemove, onUpdateQuestion, onUpdateOption }) {
     return (
@@ -414,14 +501,14 @@ export default function CurriculumManagement() {
     const [syllabusForm, setSyllabusForm] = useState({ subject: '', classLevel: '8th Standard' })
     const [syllabusErrors, setSyllabusErrors] = useState({})
 
-    // Module modal (title only)
+    // Module modal
     const [isModuleModalOpen, setIsModuleModalOpen] = useState(false)
     const [editingModule, setEditingModule] = useState(null)
     const [selectedSyllabusId, setSelectedSyllabusId] = useState(null)
     const [moduleForm, setModuleForm] = useState({ title: '' })
     const [moduleErrors, setModuleErrors] = useState({})
 
-    // SubTopic modal (full content)
+    // SubTopic modal
     const [isSubTopicModalOpen, setIsSubTopicModalOpen] = useState(false)
     const [editingSubTopic, setEditingSubTopic] = useState(null)
     const [selectedModuleId, setSelectedModuleId] = useState(null)
@@ -457,14 +544,14 @@ export default function CurriculumManagement() {
     const validateSyllabusForm = () => {
         const errors = {}
         if (!syllabusForm.subject.trim()) {
-            errors.subject = 'Subject name is required'
+            errors.subject = 'Please select a subject'
         } else {
             const duplicate = syllabi.some(s =>
                 s.subject.trim().toLowerCase() === syllabusForm.subject.trim().toLowerCase() &&
                 s.classLevel === syllabusForm.classLevel &&
                 s.id !== editingSyllabus?.id
             )
-            if (duplicate) errors.subject = `"${syllabusForm.subject.trim()}" already exists for ${syllabusForm.classLevel}`
+            if (duplicate) errors.subject = `"${syllabusForm.subject}" already exists for ${syllabusForm.classLevel}`
         }
         setSyllabusErrors(errors)
         return Object.keys(errors).length === 0
@@ -724,7 +811,6 @@ export default function CurriculumManagement() {
                             <div className="space-y-3">
                                 {subjectsForClass.map(syllabus => (
                                     <div key={syllabus.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                                        {/* Syllabus row */}
                                         <div className={`flex items-center justify-between px-4 py-3.5 cursor-pointer transition-colors ${expandedSubject === syllabus.id ? 'bg-purple-50' : 'bg-white hover:bg-gray-50'}`}
                                             onClick={() => setExpandedSubject(expandedSubject === syllabus.id ? null : syllabus.id)}>
                                             <div className="flex items-center gap-3">
@@ -751,7 +837,6 @@ export default function CurriculumManagement() {
                                             </div>
                                         </div>
 
-                                        {/* Modules list */}
                                         {expandedSubject === syllabus.id && (
                                             <div className="border-t border-gray-100 bg-gray-50/40 px-4 pb-4 pt-3">
                                                 <div className="flex justify-between items-center mb-3">
@@ -770,7 +855,6 @@ export default function CurriculumManagement() {
                                                     <div className="space-y-2">
                                                         {syllabus.modules.map((mod, idx) => (
                                                             <div key={mod.id} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                                                                {/* Module row */}
                                                                 <div className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${expandedModule === mod.id ? 'bg-purple-50/50' : 'hover:bg-gray-50'}`}
                                                                     onClick={() => setExpandedModule(expandedModule === mod.id ? null : mod.id)}>
                                                                     <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-xs font-bold text-purple-600 flex-shrink-0">
@@ -797,7 +881,6 @@ export default function CurriculumManagement() {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Units list */}
                                                                 {expandedModule === mod.id && (
                                                                     <div className="border-t border-gray-100 bg-gray-50/30 px-4 pb-4 pt-3">
                                                                         <div className="flex justify-between items-center mb-3">
@@ -858,16 +941,31 @@ export default function CurriculumManagement() {
                                 {editingSyllabus ? 'Edit Syllabus' : 'Add New Syllabus'}
                             </h3>
                             <div className="space-y-4">
+                                {/* ── Subject Name — now a dropdown ── */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name <span className="text-red-500">*</span></label>
-                                    <input type="text" value={syllabusForm.subject}
-                                        onChange={e => { setSyllabusForm({ ...syllabusForm, subject: e.target.value }); if (syllabusErrors.subject) setSyllabusErrors(p => ({ ...p, subject: undefined })) }}
-                                        placeholder="e.g. Mathematics" className={inputCls} />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Subject Name <span className="text-red-500">*</span>
+                                    </label>
+                                    <SubjectNameDropdown
+                                        value={syllabusForm.subject}
+                                        onChange={val => {
+                                            setSyllabusForm({ ...syllabusForm, subject: val })
+                                            if (syllabusErrors.subject) setSyllabusErrors(p => ({ ...p, subject: undefined }))
+                                        }}
+                                        hasError={!!syllabusErrors.subject}
+                                    />
                                     <FieldError msg={syllabusErrors.subject} />
                                 </div>
+
+                                {/* ── Class Level ── */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Class Level <span className="text-red-500">*</span></label>
-                                    <ClassLevelDropdown value={syllabusForm.classLevel} onChange={val => setSyllabusForm({ ...syllabusForm, classLevel: val })} />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Class Level <span className="text-red-500">*</span>
+                                    </label>
+                                    <ClassLevelDropdown
+                                        value={syllabusForm.classLevel}
+                                        onChange={val => setSyllabusForm({ ...syllabusForm, classLevel: val })}
+                                    />
                                 </div>
                             </div>
                         </div>
