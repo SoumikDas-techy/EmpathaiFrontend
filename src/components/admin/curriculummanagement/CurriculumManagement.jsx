@@ -23,7 +23,6 @@ const SUBJECT_OPTIONS = [
     'Social Studies',
     'Hindi',
     'Art & Craft'
-    
 ]
 
 function splitObjectives(raw) {
