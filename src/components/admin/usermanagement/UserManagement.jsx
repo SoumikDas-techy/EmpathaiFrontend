@@ -17,16 +17,23 @@ const TAB_ROLE_MAP = {
     psychologist: 'PSYCHOLOGIST',
     content_admin: 'CONTENT_ADMIN',
 }
+const formatClassName = (name) => {
+    if (!name) return 'No Class';
+    const match = name.match(/^(\d+)/);
+    if (match) return `Class ${ordinal(parseInt(match[1]))} Standard`;
+    return name.startsWith('Class') ? name : `Class ${name}`;
+};
 
-// FIX: Use ordinal suffixes so class names are consistent ("1st Standard", "2nd Standard", etc.)
-// This prevents duplicate class cards (e.g. "8 Standard" vs "8th Standard")
 const ordinal = n => {
     const s = ['th', 'st', 'nd', 'rd'], v = n % 100
     return n + (s[(v - 20) % 10] || s[v] || s[0])
 }
-const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => `${ordinal(n)} Standard`)
-// Produces: "1st Standard", "2nd Standard", "3rd Standard", "4th Standard", "5th Standard",
-//           "6th Standard", "7th Standard", "8th Standard", "9th Standard", "10th Standard"
+
+const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
+    label: `Class ${ordinal(n)}`,
+    value: `Class${ordinal(n)} Standard`,
+}))
+
 
 export default function UserManagement({ user }) {
     const [activeTab, setActiveTab] = useState('student')
@@ -484,19 +491,15 @@ export default function UserManagement({ user }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {(() => {
                         const classesMap = {}
-                        users.filter(u => u.role === 'student' && u.school === selectedSchool)
-                            .forEach(u => {
-                                // FIX: normalize class name — strip ordinal suffixes for grouping key
-                                // so "8 Standard" and "8th Standard" both map to the same card
-                                const rawClass = u.class || u.className || 'No Class'
-                                // Extract the number and re-build canonical name
-                                const match = rawClass.match(/^(\d+)/)
-                                const cName = match
-                                    ? `${ordinal(parseInt(match[1]))} Standard`
-                                    : rawClass
-                                if (!classesMap[cName]) classesMap[cName] = { count: 0 }
-                                classesMap[cName].count++
-                            })
+           users.filter(u => u.role === 'student' && u.school === selectedSchool)
+    .forEach(u => {
+        // Define rawClass before using it
+        const rawClass = u.class || u.className || 'No Class'
+        const cName = formatClassName(rawClass) 
+
+        if (!classesMap[cName]) classesMap[cName] = { count: 0 }
+        classesMap[cName].count++
+    })
                         // Sort by class number
                         return Object.keys(classesMap)
                             .sort((a, b) => {
@@ -562,12 +565,10 @@ export default function UserManagement({ user }) {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {/* FIX: match students whose class normalizes to the selected class */}
                             {filteredUsers
-                                .filter(u => {
-                                    const rawClass = u.class || u.className || ''
-                                    const match = rawClass.match(/^(\d+)/)
-                                    const normalized = match ? `${ordinal(parseInt(match[1]))} Standard` : rawClass
-                                    return normalized === selectedClass
-                                })
+      .filter(u => {
+    const studentClass = u.class || u.className || 'No Class'
+    return formatClassName(studentClass) === selectedClass
+})
                                 .map(u => (
                                     <React.Fragment key={u.id}>
                                         <tr
@@ -584,11 +585,11 @@ export default function UserManagement({ user }) {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    {u.class || u.className || '—'}
-                                                </span>
-                                            </td>
+          <td className="px-6 py-4 text-sm text-gray-500">
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        {formatClassName(u.class || u.className || 'No Class')}
+    </span>
+</td>
                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                     {u.section ? `Section ${u.section}` : '—'}
@@ -731,9 +732,9 @@ export default function UserManagement({ user }) {
                                             <div>
                                                 <label className="block text-sm font-medium">Class</label>
                                                 <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
-                                                    <option value="">Select Class</option>
-                                                    {CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
+    <option value="">Select Class</option>
+    {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+</select>
                                                 {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
                                             </div>
                                         </div>

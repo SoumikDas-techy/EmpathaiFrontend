@@ -318,8 +318,8 @@ const grp = question.groupMapId ? [question.groupMapId] : [];
     }
 
    
-const letters = ['A', 'B', 'C', 'D']
-const formattedOptions = options.map((opt, idx) => `${letters[idx]}- ${opt}`)
+
+const formattedOptions = options.map((opt) => `${opt}`)
 const questionData = {
     questionText: questionFormData.question,
     options: formattedOptions.join(','),
@@ -1140,7 +1140,7 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                         </td>
                         {filteredSheet.map((student, i) => {
     const questionText = question.questions || question.question || question.text || ''
-    // ✅ responseSheet is flat rows — find matching row by studentId + questionId or questionText
+    
     const ans = responseSheet.find(
         r => r.studentId === student.studentId &&
         (r.questionId === question.id ||

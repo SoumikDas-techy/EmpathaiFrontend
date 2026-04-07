@@ -186,9 +186,27 @@ function SelectDropdown({ value, onChange, options, placeholder = 'Select...' })
 // ── Class Level Dropdown (uses SelectDropdown) ────────
 
 function ClassLevelDropdown({ value, onChange }) {
-    const classOptions = CLASS_LEVELS.map(l => `${l} Standard`)
-    return <SelectDropdown value={value} onChange={onChange} options={classOptions} placeholder="Select class level..." />
+    
+    const classDisplayOptions = CLASS_LEVELS.map(l => `Class ${l}`)
+    
+    const valueToDisplay = (val) => {
+        if (!val) return ''; 
+        return `Class ${val.replace(' Standard', '')}`;
+    };
+    const displayToValue = (display) => {
+        return display.replace('Class ', '') + ' Standard';
+    };
+
+    return (
+        <SelectDropdown
+            value={valueToDisplay(value)}
+            onChange={(display) => onChange(displayToValue(display))}
+            options={classDisplayOptions}
+            placeholder="Select class level..."
+        />
+    );
 }
+   
 
 // ── Subject Name Dropdown (uses SelectDropdown) ───────
 
@@ -497,7 +515,7 @@ export default function CurriculumManagement() {
     // Syllabus modal
     const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false)
     const [editingSyllabus, setEditingSyllabus] = useState(null)
-    const [syllabusForm, setSyllabusForm] = useState({ subject: '', classLevel: '8th Standard' })
+    const [syllabusForm, setSyllabusForm] = useState({ subject: '', classLevel: '' })
     const [syllabusErrors, setSyllabusErrors] = useState({})
 
     // Module modal
@@ -607,7 +625,7 @@ export default function CurriculumManagement() {
         setSyllabusErrors({})
         setSyllabusForm(syllabus
             ? { subject: syllabus.subject, classLevel: syllabus.classLevel }
-            : { subject: '', classLevel: currentClass || '8th Standard' })
+            : { subject: '', classLevel: currentClass || '' })
         setIsSyllabusModalOpen(true)
     }
 
@@ -793,7 +811,7 @@ export default function CurriculumManagement() {
 
                     <div className="p-5">
                         <div className="flex justify-between items-center mb-4">
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Subjects — {currentClass}</h4>
+                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Subjects —Class {currentClass}</h4>
                             <button onClick={() => openSyllabusModal()}
                                 className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
                                 <PlusIcon className="w-4 h-4" />Add Subject
