@@ -100,12 +100,9 @@ const filterByDate = (student) => {
 
 
 
-const defaultGroups = [
-    { id: 'Daily Check-in', name: 'Daily Check-in', color: 'purple', isDefault: true },
-    { id: 'Class 8th', name: 'Class 8th Standard', color: 'green', isDefault: true },
-    { id: 'Class 9th', name: 'Class 9th Standard', color: 'blue', isDefault: true },
-    { id: 'Class 10th', name: 'Class 10th Standard', color: 'indigo', isDefault: true },
-]
+// NOTE: Default groups removed — they used string IDs ('Daily Check-in', 'Class 8th', etc.)
+// which caused groupMapId to be sent as a string to the backend (which expects a Long),
+// resulting in null being saved to the DB. All groups must come from the DB with numeric IDs.
 
 
 useEffect(() => {
@@ -143,14 +140,12 @@ useEffect(() => {
         if (!b.createdAt) return 1
         return new Date(a.createdAt) - new Date(b.createdAt)
     })
-    // Merge: keep defaults that don't already exist in DB by name
-    const dbNames = new Set(sorted.map(g => g.name))
-    const missingDefaults = defaultGroups.filter(d => !dbNames.has(d.name))
-    setGroups([...missingDefaults, ...sorted])
+    // Only use real DB groups — all groups must have numeric IDs from the DB
+    setGroups(sorted)
 })
 .catch((err) => {
     console.error('Groups fetch failed:', err)
-    setGroups(defaultGroups)
+    setGroups([])
 })
 
     // Fetch Questions
@@ -320,10 +315,15 @@ const grp = question.groupMapId ? [question.groupMapId] : [];
    
 
 const formattedOptions = options.map((opt) => `${opt}`)
+// IMPORTANT: groupMapId must be a Number (Long), not a string.
+// Sending a string causes the backend to receive null for the Long field,
+// which means group_map_id is saved as NULL in DB → question disappears on refresh.
+const rawGroupId = questionFormData.groups.length > 0 ? questionFormData.groups[0] : null
+const groupMapId = rawGroupId !== null && rawGroupId !== undefined ? Number(rawGroupId) : null
 const questionData = {
     questionText: questionFormData.question,
     options: formattedOptions.join(','),
-    groupMapId: questionFormData.groups.length > 0 ? questionFormData.groups[0] : null
+    groupMapId: groupMapId
 }
     if (editingQuestion) {
         updateQuestion(editingQuestion.id, questionData)
@@ -1294,5 +1294,3 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
         </div>
     )
 }
-   
-    

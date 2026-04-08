@@ -19,8 +19,8 @@ const TAB_ROLE_MAP = {
 }
 const formatClassName = (name) => {
     if (!name) return 'No Class';
-    const match = name.match(/^(\d+)/);
-    if (match) return `Class ${ordinal(parseInt(match[1]))} Standard`;
+    const match = name.match(/\d+/);
+    if (match) return `Class ${ordinal(parseInt(match[0]))} Standard`;
     return name.startsWith('Class') ? name : `Class ${name}`;
 };
 
@@ -31,7 +31,7 @@ const ordinal = n => {
 
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
     label: `Class ${ordinal(n)}`,
-    value: `Class${ordinal(n)} Standard`,
+    value: `${ordinal(n)} Standard`,
 }))
 
 
@@ -344,7 +344,7 @@ export default function UserManagement({ user }) {
     const filteredUsers = users
         .filter(u => u.role === activeTab)
         .filter(u => !selectedSchool || u.school === selectedSchool)
-        .filter(u => !selectedClass || u.class === selectedClass)
+        .filter(u => !selectedClass || formatClassName(u.class || u.className) === selectedClass)
         .filter(u => {
             if (!searchTerm) return true
             const search = searchTerm.toLowerCase()
@@ -635,15 +635,13 @@ export default function UserManagement({ user }) {
                                     </React.Fragment>
                                 ))}
                             {filteredUsers.filter(u => {
-                                const rawClass = u.class || u.className || ''
-                                const match = rawClass.match(/^(\d+)/)
-                                const normalized = match ? `${ordinal(parseInt(match[1]))} Standard` : rawClass
-                                return normalized === selectedClass
-                            }).length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
-                                    </tr>
-                                )}
+    const rawClass = u.class || u.className || 'No Class';
+    return formatClassName(rawClass) === selectedClass; 
+}).length === 0 && (
+    <tr>
+        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+    </tr>
+)}
                         </tbody>
                     </table>
                 </div>
