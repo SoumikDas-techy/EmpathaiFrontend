@@ -84,12 +84,24 @@ export default function UserManagement({ user }) {
             if (activeTab === 'student') {
                 const schoolParam = user?.role === 'SCHOOL_ADMIN' ? user.school : (selectedSchool || undefined)
                 result = await getStudents({ ...opts, school: schoolParam })
-                setUsers((result.content || []).map(u => ({
+                const studentList = (result.content || []).map(u => ({
                     ...u,
                     role: 'student',
                     class: u.className,
-                })))
-            } else if (activeTab === 'school_admin') {
+                }))
+                setUsers(studentList)
+
+                // Pre-fetch full details so Section & Parent Phone show in the table immediately
+                const fullDetails = await Promise.all(
+                    studentList.map(u => getUserById(u.id).catch(() => null))
+                )
+                const detailsMap = {}
+                fullDetails.forEach(full => {
+                    if (full) detailsMap[full.id] = full
+                })
+                setExpandedUserData(prev => ({ ...prev, ...detailsMap }))
+            }
+            else if (activeTab === 'school_admin') {
                 result = await getSchoolAdmins(opts)
                 setUsers((result.content || []).map(u => ({ ...u, role: 'school_admin' })))
             } else if (activeTab === 'psychologist') {
@@ -599,84 +611,80 @@ export default function UserManagement({ user }) {
                                     const studentClass = u.class || u.className || 'No Class'
                                     return formatClassName(studentClass) === selectedClass
                                 })
-                                .map(u => (
-                                    <React.Fragment key={u.id}>
-                                        <tr
-                                            className="hover:bg-gray-50 cursor-pointer"
-                                            onClick={() => toggleRow(u.id)}
-                                        >
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    {expandedRow === u.id
-                                                        ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                                        : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                    }
-                                                    {u.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    {formatClassName(u.class || u.className || 'No Class')}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                    {u.section ? `Section ${u.section}` : '—'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                {u.parentEmail
-                                                    ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        <PhoneIcon className="w-3 h-3" />{u.parentEmail}
+                                .map(u => {
+                                    const full = expandedUserData[u.id] || u   // 👈 THIS is what was missing
+                                    return (
+                                        <React.Fragment key={u.id}>
+                                            <tr
+                                                className="hover:bg-gray-50 cursor-pointer"
+                                                onClick={() => toggleRow(u.id)}
+                                            >
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                    <div className="flex items-center gap-2">
+                                                        {expandedRow === u.id
+                                                            ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                            : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                        }
+                                                        {u.name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                        {formatClassName(u.class || u.className || 'No Class')}
                                                     </span>
-                                                    : <span className="text-gray-300">—</span>
-                                                }
-                                            </td>
-                                            <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
-                                                        <PencilIcon className="w-5 h-5" />
-                                                    </button>
-                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
-                                                        <TrashIcon className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {expandedRow === u.id && (
-                                            <tr className="bg-gray-50">
-                                                <td colSpan={6} className="px-8 py-4">
-                                                    {(() => {
-                                                        const full = expandedUserData[u.id] || u
-                                                        return (
-                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
-                                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                                        {full.bloodGroup || '—'}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
-                                                                    <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
-                                                                </div>
-                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Section</p>
-                                                                    <p className="text-sm font-semibold text-gray-800">{full.section || '—'}</p>
-                                                                </div>
-                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Parent Phone</p>
-                                                                    <p className="text-sm font-semibold text-gray-800">{full.parentEmail || '—'}</p>
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })()}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {full.section ? `Section ${full.section}` : '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    {full.parentEmail
+                                                        ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                            <PhoneIcon className="w-3 h-3" />{full.parentEmail}
+                                                        </span>
+                                                        : <span className="text-gray-300">—</span>
+                                                    }
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
+                                                            <PencilIcon className="w-5 h-5" />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
+                                                            <TrashIcon className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
-                                        )}
-                                    </React.Fragment>
-                                ))}
+                                            {expandedRow === u.id && (
+                                                <tr className="bg-gray-50">
+                                                    <td colSpan={6} className="px-8 py-4">
+                                                        {(() => {
+                                                            const full = expandedUserData[u.id] || u
+                                                            return (
+                                                                <div className="grid grid-cols-2 gap-4">
+                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                            {full.bloodGroup || '—'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
+                                                                        <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })()}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+
+                                    )
+                                })}
                             {filteredUsers.filter(u => {
                                 const rawClass = u.class || u.className || 'No Class';
                                 return formatClassName(rawClass) === selectedClass;
@@ -715,133 +723,174 @@ export default function UserManagement({ user }) {
                         </tbody>
                     </table>
                 </div>
-            )}
+            )
+            }
 
             {/* ── CREATE / EDIT MODAL ── */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4">
-                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsModalOpen(false)}></div>
-                        <div className="bg-white rounded-lg p-6 z-10 w-full max-w-2xl">
-                            <h3 className="text-lg font-bold mb-4">{editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}</h3>
-                            <div className="space-y-4">
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 z-50 overflow-y-auto">
+                        <div className="flex items-center justify-center min-h-screen px-4">
+                            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsModalOpen(false)}></div>
+                            <div className="bg-white rounded-lg p-6 z-10 w-full max-w-2xl">
+                                <h3 className="text-lg font-bold mb-4">{editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}</h3>
+                                <div className="space-y-4">
 
-                                <div>
-                                    <label className="block text-sm font-medium">Name</label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.name ? 'border-red-500' : 'border-gray-300'}`}
-                                    />
-                                    {validationErrors.name && <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>}
-                                </div>
+                                    <div>
+                                        <label className="block text-sm font-medium">Name</label>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                                        />
+                                        {validationErrors.name && <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>}
+                                    </div>
 
-                                {activeTab === 'schools' ? (
-                                    <>
-                                        <div>
-                                            <label className="block text-sm font-medium">Physical Address</label>
-                                            <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
-                                            {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                    {activeTab === 'schools' ? (
+                                        <>
                                             <div>
-                                                <label className="block text-sm font-medium">Contact Person</label>
-                                                <input type="text" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.contactName ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.contactName && <p className="text-red-500 text-xs mt-1">{validationErrors.contactName}</p>}
+                                                <label className="block text-sm font-medium">Physical Address</label>
+                                                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
+                                                {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Contact Person</label>
+                                                    <input type="text" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.contactName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.contactName && <p className="text-red-500 text-xs mt-1">{validationErrors.contactName}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Official Email</label>
+                                                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
+                                                </div>
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium">Official Email</label>
-                                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
+                                                <label className="block text-sm font-medium">Phone Number</label>
+                                                <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
+                                                {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
                                             </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Phone Number</label>
-                                            <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
-                                            {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
-                                        </div>
-                                    </>
-                                ) : activeTab === 'student' ? (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        </>
+                                    ) : activeTab === 'student' ? (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Date of Birth</label>
+                                                    <input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Class</label>
+                                                    <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <option value="">Select Class</option>
+                                                        {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                                    </select>
+                                                    {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Section</label>
+                                                    <select value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <option value="">Select Section</option>
+                                                        <option value="A">Section A</option>
+                                                        <option value="B">Section B</option>
+                                                        <option value="C">Section C</option>
+                                                        <option value="D">Section D</option>
+                                                    </select>
+                                                    {validationErrors.section && <p className="text-red-500 text-xs mt-1">{validationErrors.section}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Roll No</label>
+                                                    <input type="text" value={formData.rollNo} onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.rollNo ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Blood Group</label>
+                                                    <select value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.bloodGroup ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <option value="">Select Blood Group</option>
+                                                        <option value="A+">A+</option>
+                                                        <option value="A-">A-</option>
+                                                        <option value="B+">B+</option>
+                                                        <option value="B-">B-</option>
+                                                        <option value="AB+">AB+</option>
+                                                        <option value="AB-">AB-</option>
+                                                        <option value="O+">O+</option>
+                                                        <option value="O-">O-</option>
+                                                    </select>
+                                                    {validationErrors.bloodGroup && <p className="text-red-500 text-xs mt-1">{validationErrors.bloodGroup}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Email</label>
+                                                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Password</label>
+                                                    <div className="flex gap-2">
+                                                        <input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <button onClick={generatePassword} type="button" className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Gen</button>
+                                                    </div>
+                                                    {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Parent Name</label>
+                                                    <input type="text" value={formData.parentName} onChange={(e) => setFormData({ ...formData, parentName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Parent Phone Number</label>
+                                                    <input type="text" value={formData.parentPhone} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="10-digit mobile number" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
+                                                </div>
+                                                {(user?.role === 'SUPER_ADMIN' || editingUser) && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium">School</label>
+                                                        <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
+                                                            <option value="">Select School</option>
+                                                            {schoolsData.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                                        </select>
+                                                        {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <div>
-                                                <label className="block text-sm font-medium">Date of Birth</label>
-                                                <input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
+                                                <label className="block text-sm font-medium">Address</label>
+                                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
+                                                {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Class</label>
-                                                <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
-                                                    <option value="">Select Class</option>
-                                                    {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                                </select>
-                                                {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Email</label>
+                                                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Phone Number</label>
+                                                    <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
+                                                    {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">Section</label>
-                                                <select value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}>
-                                                    <option value="">Select Section</option>
-                                                    <option value="A">Section A</option>
-                                                    <option value="B">Section B</option>
-                                                    <option value="C">Section C</option>
-                                                    <option value="D">Section D</option>
-                                                </select>
-                                                {validationErrors.section && <p className="text-red-500 text-xs mt-1">{validationErrors.section}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Roll No</label>
-                                                <input type="text" value={formData.rollNo} onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.rollNo ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">Blood Group</label>
-                                                <select value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.bloodGroup ? 'border-red-500' : 'border-gray-300'}`}>
-                                                    <option value="">Select Blood Group</option>
-                                                    <option value="A+">A+</option>
-                                                    <option value="A-">A-</option>
-                                                    <option value="B+">B+</option>
-                                                    <option value="B-">B-</option>
-                                                    <option value="AB+">AB+</option>
-                                                    <option value="AB-">AB-</option>
-                                                    <option value="O+">O+</option>
-                                                    <option value="O-">O-</option>
-                                                </select>
-                                                {validationErrors.bloodGroup && <p className="text-red-500 text-xs mt-1">{validationErrors.bloodGroup}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Email</label>
-                                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium">Password</label>
                                                 <div className="flex gap-2">
                                                     <input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
-                                                    <button onClick={generatePassword} type="button" className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Gen</button>
+                                                    <button onClick={generatePassword} type="button" className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Generate</button>
                                                 </div>
                                                 {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Parent Name</label>
-                                                <input type="text" value={formData.parentName} onChange={(e) => setFormData({ ...formData, parentName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentName ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">Parent Phone Number</label>
-                                                <input type="text" value={formData.parentPhone} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="10-digit mobile number" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
-                                            </div>
-                                            {(user?.role === 'SUPER_ADMIN' || editingUser) && (
-                                                <div>
+                                            {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
+                                                <div className="mt-4">
                                                     <label className="block text-sm font-medium">School</label>
                                                     <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
                                                         <option value="">Select School</option>
@@ -850,74 +899,38 @@ export default function UserManagement({ user }) {
                                                     {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
                                                 </div>
                                             )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Address</label>
-                                            <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
-                                            {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">Email</label>
-                                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Phone Number</label>
-                                                <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Password</label>
-                                            <div className="flex gap-2">
-                                                <input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
-                                                <button onClick={generatePassword} type="button" className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Generate</button>
-                                            </div>
-                                            {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
-                                        </div>
-                                        {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
-                                            <div className="mt-4">
-                                                <label className="block text-sm font-medium">School</label>
-                                                <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
-                                                    <option value="">Select School</option>
-                                                    {schoolsData.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                                                </select>
-                                                {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                            <div className="mt-6 flex justify-end gap-3">
-                                <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                                <button onClick={handleSaveUser} disabled={saving} className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50">
-                                    {saving ? 'Saving...' : 'Save'}
-                                </button>
+                                        </>
+                                    )}
+                                </div>
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
+                                    <button onClick={handleSaveUser} disabled={saving} className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50">
+                                        {saving ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Delete Modal */}
-            {isDeleteModalOpen && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)}></div>
-                    <div className="bg-white p-6 rounded-lg z-10 max-w-sm w-full text-center">
-                        <TrashIcon className="h-12 w-12 text-red-600 mx-auto mb-4" />
-                        <h3 className="text-lg font-bold">Delete {activeTab === 'schools' ? 'School' : 'User'}?</h3>
-                        <p className="text-sm text-gray-500 mt-2">Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.</p>
-                        <div className="mt-6 flex gap-3">
-                            <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-md">Cancel</button>
-                            <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md">Delete</button>
+            {
+                isDeleteModalOpen && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)}></div>
+                        <div className="bg-white p-6 rounded-lg z-10 max-w-sm w-full text-center">
+                            <TrashIcon className="h-12 w-12 text-red-600 mx-auto mb-4" />
+                            <h3 className="text-lg font-bold">Delete {activeTab === 'schools' ? 'School' : 'User'}?</h3>
+                            <p className="text-sm text-gray-500 mt-2">Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.</p>
+                            <div className="mt-6 flex gap-3">
+                                <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-md">Cancel</button>
+                                <button onClick={confirmDelete} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md">Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }
