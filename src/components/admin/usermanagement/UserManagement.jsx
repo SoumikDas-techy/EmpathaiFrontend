@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+
 import {
     PlusIcon, PencilIcon, TrashIcon, UserPlusIcon, ChevronDownIcon, ChevronRightIcon,
     MagnifyingGlassIcon, KeyIcon, ArrowLeftIcon, BuildingLibraryIcon, AcademicCapIcon,
@@ -8,7 +9,7 @@ import {
 import {
     getStudents, getSchoolAdmins, getPsychologists, getContentAdmins,
     createUser, updateUser, deleteUser, resetPassword,
-    getSchools, createSchool, deleteSchool
+    getSchools, createSchool, deleteSchool, getUserById
 } from '../../../api/usermanagementapi.js'
 
 const TAB_ROLE_MAP = {
@@ -136,27 +137,41 @@ export default function UserManagement({ user }) {
         setFormData(prev => ({ ...prev, password: pass }))
     }
 
-    const handleOpenModal = (userToEdit = null) => {
+    const handleOpenModal = async (userToEdit = null) => {
         setValidationErrors({})
         if (userToEdit) {
-            setEditingUser(userToEdit)
+            // If it has an id and is a user (not a school), fetch full details from API
+            // because the list response is now lean and missing fields like
+            // section, bloodGroup, parentName, parentEmail, address, dateOfBirth
+            let fullUser = userToEdit
+            if (userToEdit.id && activeTab !== 'schools') {
+                try {
+                    fullUser = await getUserById(userToEdit.id)
+                } catch (err) {
+                    console.error('Failed to fetch user details', err)
+                    // fallback to whatever data we have from the list
+                    fullUser = userToEdit
+                }
+            }
+
+            setEditingUser(fullUser)
             setFormData({
-                name: userToEdit.name || '',
-                email: userToEdit.email || '',
-                role: userToEdit.role || activeTab,
+                name: fullUser.name || '',
+                email: fullUser.email || '',
+                role: fullUser.role || activeTab,
                 password: '',
-                class: userToEdit.class || userToEdit.className || '',
-                section: userToEdit.section || '',
-                school: userToEdit.school || '',
-                parentName: userToEdit.parentName || '',
-                parentPhone: userToEdit.parentEmail || '',
-                phoneNumber: userToEdit.phoneNumber || '',
-                dateOfBirth: userToEdit.dateOfBirth || '',
-                address: userToEdit.address || '',
-                bloodGroup: userToEdit.bloodGroup || '',
-                emergencyContact: userToEdit.emergencyContact || '',
-                contactName: userToEdit.contactName || '',
-                rollNo: userToEdit.rollNo || '',
+                class: fullUser.className || fullUser.class || '',
+                section: fullUser.section || '',
+                school: fullUser.school || '',
+                parentName: fullUser.parentName || '',
+                parentPhone: fullUser.parentEmail || '',   // parentEmail field stores parent phone
+                phoneNumber: fullUser.phoneNumber || '',
+                dateOfBirth: fullUser.dateOfBirth || '',
+                address: fullUser.address || '',
+                bloodGroup: fullUser.bloodGroup || '',
+                emergencyContact: fullUser.emergencyContact || '',
+                contactName: fullUser.contactName || '',
+                rollNo: fullUser.rollNo || '',
             })
         } else {
             setEditingUser(null)
@@ -308,8 +323,23 @@ export default function UserManagement({ user }) {
         }
     }
 
-    const toggleRow = (userId) => {
-        setExpandedRow(expandedRow === userId ? null : userId)
+    const [expandedUserData, setExpandedUserData] = useState({})
+
+    const toggleRow = async (userId) => {
+        if (expandedRow === userId) {
+            setExpandedRow(null)
+            return
+        }
+        setExpandedRow(userId)
+        // Only fetch if we don't already have the full data cached
+        if (!expandedUserData[userId]) {
+            try {
+                const fullUser = await getUserById(userId)
+                setExpandedUserData(prev => ({ ...prev, [userId]: fullUser }))
+            } catch (err) {
+                console.error('Failed to fetch student details', err)
+            }
+        }
     }
 
     const handleResetPassword = (userToReset) => {
@@ -491,15 +521,15 @@ export default function UserManagement({ user }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {(() => {
                         const classesMap = {}
-           users.filter(u => u.role === 'student' && u.school === selectedSchool)
-    .forEach(u => {
-        // Define rawClass before using it
-        const rawClass = u.class || u.className || 'No Class'
-        const cName = formatClassName(rawClass) 
+                        users.filter(u => u.role === 'student' && u.school === selectedSchool)
+                            .forEach(u => {
+                                // Define rawClass before using it
+                                const rawClass = u.class || u.className || 'No Class'
+                                const cName = formatClassName(rawClass)
 
-        if (!classesMap[cName]) classesMap[cName] = { count: 0 }
-        classesMap[cName].count++
-    })
+                                if (!classesMap[cName]) classesMap[cName] = { count: 0 }
+                                classesMap[cName].count++
+                            })
                         // Sort by class number
                         return Object.keys(classesMap)
                             .sort((a, b) => {
@@ -565,10 +595,10 @@ export default function UserManagement({ user }) {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {/* FIX: match students whose class normalizes to the selected class */}
                             {filteredUsers
-      .filter(u => {
-    const studentClass = u.class || u.className || 'No Class'
-    return formatClassName(studentClass) === selectedClass
-})
+                                .filter(u => {
+                                    const studentClass = u.class || u.className || 'No Class'
+                                    return formatClassName(studentClass) === selectedClass
+                                })
                                 .map(u => (
                                     <React.Fragment key={u.id}>
                                         <tr
@@ -585,11 +615,11 @@ export default function UserManagement({ user }) {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-          <td className="px-6 py-4 text-sm text-gray-500">
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-        {formatClassName(u.class || u.className || 'No Class')}
-    </span>
-</td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                    {formatClassName(u.class || u.className || 'No Class')}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                     {u.section ? `Section ${u.section}` : '—'}
@@ -617,31 +647,44 @@ export default function UserManagement({ user }) {
                                         {expandedRow === u.id && (
                                             <tr className="bg-gray-50">
                                                 <td colSpan={6} className="px-8 py-4">
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                                {u.bloodGroup || '—'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
-                                                            <p className="text-sm font-semibold text-gray-800">{u.rollNo || '—'}</p>
-                                                        </div>
-                                                    </div>
+                                                    {(() => {
+                                                        const full = expandedUserData[u.id] || u
+                                                        return (
+                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
+                                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                        {full.bloodGroup || '—'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
+                                                                    <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
+                                                                </div>
+                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Section</p>
+                                                                    <p className="text-sm font-semibold text-gray-800">{full.section || '—'}</p>
+                                                                </div>
+                                                                <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                    <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Parent Phone</p>
+                                                                    <p className="text-sm font-semibold text-gray-800">{full.parentEmail || '—'}</p>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })()}
                                                 </td>
                                             </tr>
                                         )}
                                     </React.Fragment>
                                 ))}
                             {filteredUsers.filter(u => {
-    const rawClass = u.class || u.className || 'No Class';
-    return formatClassName(rawClass) === selectedClass; 
-}).length === 0 && (
-    <tr>
-        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
-    </tr>
-)}
+                                const rawClass = u.class || u.className || 'No Class';
+                                return formatClassName(rawClass) === selectedClass;
+                            }).length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                    </tr>
+                                )}
                         </tbody>
                     </table>
                 </div>
@@ -730,9 +773,9 @@ export default function UserManagement({ user }) {
                                             <div>
                                                 <label className="block text-sm font-medium">Class</label>
                                                 <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
-    <option value="">Select Class</option>
-    {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-</select>
+                                                    <option value="">Select Class</option>
+                                                    {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                                </select>
                                                 {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
                                             </div>
                                         </div>

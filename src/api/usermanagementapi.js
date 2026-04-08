@@ -4,8 +4,8 @@ import { apiGet, apiPost, apiPut, apiDelete } from './apiClient.js';
 
 export function getStudents({ school, search, page = 0, size = 50 } = {}) {
   const params = new URLSearchParams();
-  if (school)  params.set('school', school);
-  if (search)  params.set('search', search);
+  if (school) params.set('school', school);
+  if (search) params.set('search', search);
   params.set('page', page);
   params.set('size', size);
   return apiGet(`/api/users/students?${params}`);
@@ -179,4 +179,8 @@ export function updateModule(id, data) {
 
 export function deleteModule(id) {
   return apiDelete(`/api/modules/${id}`);
+}
+
+export const getUserById = (id) => {
+  return apiGet(`/api/users/${id}`)
 }
