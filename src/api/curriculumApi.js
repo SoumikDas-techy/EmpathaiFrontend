@@ -13,13 +13,28 @@ function currentUser() {
     } catch { return 'Admin_User' }
 }
 
+/**
+ * Normalise a student's className to match how the admin stores classLevel.
+ * Examples:
+ *   "Class5th Standard"  → "5th Standard"
+ *   "Class 5th Standard" → "5th Standard"
+ *   "5th Standard"       → "5th Standard"  (unchanged)
+ *   "class5"             → "5"
+ */
+function normaliseClassLevel(className) {
+    if (!className) return className
+    return className
+        .replace(/^class\s*/i, '')
+        .trim()
+}
+
 // ── SYLLABUS ──────────────────────────────────────────────────────────────────
 
 export const getAllSyllabi = () =>
     apiGet(`${BASE}/syllabi`)
 
 export const getSyllabiByClass = (classLevel) =>
-    apiGet(`${BASE}/syllabi/class/${encodeURIComponent(classLevel)}`)
+    apiGet(`${BASE}/syllabi/class/${encodeURIComponent(normaliseClassLevel(classLevel))}`)
 
 export const createSyllabus = (subject, classLevel) =>
     apiPost(`${BASE}/syllabi`, { subject, classLevel, createdBy: currentUser(), modifiedBy: currentUser() })
