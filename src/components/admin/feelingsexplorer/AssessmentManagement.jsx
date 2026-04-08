@@ -291,9 +291,6 @@ const grp = question.groupMapId ? [question.groupMapId] : [];
 }
 
 
-
-
-
      const handleSaveQuestion = () => {
     const options = [
         questionFormData.option1,
@@ -374,20 +371,23 @@ const questionData = {
         return
     }
 
-    /*const groupData = {
-        
-        name: groupFormData.name  + ' Standard',
-        color: groupFormData.color,
-        isDefault: false
-    }*/
-   const groupData = {
-    name: groupFormData.name + ' Standard',
-    color: groupFormData.color,
-    isDefault: false,
-  className: groupFormData.name  
-}
+    // ─────────────────────────────────────────────────────────────────────────
+    // FIX: className must be stored as "1st Standard", "2nd Standard", etc.
+    // groupFormData.name comes from the select as "Class 1st", "Class 2nd", etc.
+    // Strip the leading "Class " prefix so className = "1st Standard".
+    // This matches the existing DB rows (e.g. "1st Standard", "2nd Standard").
+    // ─────────────────────────────────────────────────────────────────────────
+    const ordinalPart = groupFormData.name.replace(/^Class\s+/, '').trim() // "1st"
+    const classNameForDB = ordinalPart + ' Standard'                        // "1st Standard"
 
-    console.log(' Creating group — sending to DB:', groupData)
+    const groupData = {
+        name: groupFormData.name + ' Standard',   // "Class 1st Standard"
+        color: groupFormData.color,
+        isDefault: false,
+        className: classNameForDB                  // "1st Standard" ← FIXED
+    }
+
+    console.log('✅ Creating group — sending to DB:', groupData)
 
    setIsGroupModalOpen(false)
 
@@ -476,7 +476,10 @@ const handleOptionClick = (question, option) => {
         : 'Guest'
 
     const currentGroupId = selectedGroupRef.current
-    const groupName = groupsRef.current.find(g => g.id === currentGroupId)?.name || currentGroupId
+    const currentGroupObj = groupsRef.current.find(g => g.id === currentGroupId)
+    // Use className (e.g. "4th Standard") as groupName so it matches what's stored in DB.
+    // The group's .name is "Class 4th Standard" but responses are keyed by className "4th Standard".
+    const groupName = currentGroupObj?.className || currentGroupObj?.name || currentGroupId
     const responseData = {
         studentId: user?.email || user?.id || 'guest_' + Date.now(),
         studentName: studentName,
@@ -508,29 +511,27 @@ const handleOptionClick = (question, option) => {
             setIsResponseModalOpen(true)
 
            
-          fetchResponses(0, 500)
-    .then(data => {
-        const all = data?.content || data || []
-        const selectedGroupObj = groups.find(g => g.id === selectedGroup)
-        const selectedGroupName = selectedGroupObj?.name || ''
-        const selectedClassName = selectedGroupObj?.className || ''
-        
-        const sheet = all.filter(r => {
-            const rClass = (r.className || '').toLowerCase().trim()
-            const rGroup = (r.groupName || '').toLowerCase().trim()
-            const gName = selectedGroupName.toLowerCase().trim()
-            const gClass = selectedClassName.toLowerCase().trim()
-            
-            return rClass === gName ||
-                   rClass === gClass ||
-                   rGroup === gName ||
-                   rGroup === gClass ||
-                   gName.includes(rClass) ||
-                   rClass.includes(gClass)
-        })
-        setResponseSheet(sheet)
-    })
-    .catch(err => console.error('Sheet error:', err))
+    // ─────────────────────────────────────────────────────────────────────
+    // FIX: After saving a response, refresh the response sheet using the
+    // group's stored name (same key used by fetchResponseSheet).
+    // Previously this re-filtered locally using className string matching
+    // which was fragile. Now we just re-fetch from the API by groupName.
+    // ─────────────────────────────────────────────────────────────────────
+    const currentGroups = groupsRef.current
+    const currentGroupObj2 = currentGroups.find(g => g.id === selectedGroupRef.current)
+    // Use className to match stored group_name in DB
+    const currentGroupName = currentGroupObj2?.className || currentGroupObj2?.name || ''
+
+    if (showResponseSheetRef.current && currentGroupName) {
+        fetchResponseSheet(currentGroupName)
+            .then(data => {
+                const sheet = Array.isArray(data)
+                    ? data
+                    : data?.content || data || []
+                setResponseSheet(sheet)
+            })
+            .catch(err => console.error('Sheet refresh error:', err))
+    }
         })
         .catch(err => {
             console.error('Save error:', err)
@@ -768,8 +769,10 @@ onClick={() => {
     setResponseSheet([])
     setFilterGender('')
     setDateFilter('ALL') //new filter
-    const groupName = groups.find(g => g.id === selectedGroup)?.name || selectedGroup  // ← add this
-    fetchResponseSheet(groupName)  // ← use groupName instead of selectedGroup
+    const groupObj = groups.find(g => g.id === selectedGroup)
+    // Use className (e.g. "4th Standard") to match what's stored in student_responses.group_name
+    const groupName = groupObj?.className || groupObj?.name || selectedGroup
+    fetchResponseSheet(groupName)
         .then(data => {
             const sheet = Array.isArray(data)
                 ? data
@@ -863,10 +866,7 @@ View Responses
                                                   {getOptionsArray(question).map((option, idx) => (
     <div key={idx} className="flex flex-col">
 
-        {/* <div
-            onClick={() => handleOptionClick(question, option)}
-            className="flex items-center p-2 bg-purple-50 rounded-md cursor-pointer hover:bg-purple-100 transition"
-        > */}<div
+        <div
    onClick={() => handleOptionClick(question, option)}
 className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-pointer hover:bg-purple-100"
 >
@@ -1128,6 +1128,14 @@ className="flex items-center p-2 bg-purple-50 rounded-md transition cursor-point
                     {filteredSheet.map((student, i) => (
                         <td key={i} className="border px-4 py-2">
                             {student.age || '-'}
+                        </td>
+                    ))}
+                </tr>
+                <tr>
+                    <td className="border px-4 py-2 font-medium">School</td>
+                    {filteredSheet.map((student, i) => (
+                        <td key={i} className="border px-4 py-2">
+                            {student.schoolName || '-'}
                         </td>
                     ))}
                 </tr>
