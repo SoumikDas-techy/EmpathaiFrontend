@@ -18,6 +18,9 @@ function currentUser() {
 export const getAllSyllabi = () =>
     apiGet(`${BASE}/syllabi`)
 
+export const getSyllabiByClass = (classLevel) =>
+    apiGet(`${BASE}/syllabi/class/${encodeURIComponent(classLevel)}`)
+
 export const createSyllabus = (subject, classLevel) =>
     apiPost(`${BASE}/syllabi`, { subject, classLevel, createdBy: currentUser(), modifiedBy: currentUser() })
 

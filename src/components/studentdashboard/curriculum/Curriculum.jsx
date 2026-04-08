@@ -9,7 +9,7 @@ import {
   ChevronDownIcon,
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
-import { getAllSyllabi } from '../../../api/curriculumApi'
+import { getAllSyllabi, getSyllabiByClass } from '../../../api/curriculumApi'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -365,14 +365,19 @@ export default function Curriculum({ user, setActiveTab, navigateToChat }) {
     setLoading(true)
     setError(null)
     try {
-      const data = await getAllSyllabi()
+      let data
+      if (user?.role?.toUpperCase() === 'STUDENT' && user?.className) {
+        data = await getSyllabiByClass(user.className)
+      } else {
+        data = await getAllSyllabi()
+      }
       setSyllabi(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err.message || 'Failed to load curriculum')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => { load() }, [load])
 
@@ -431,13 +436,21 @@ export default function Curriculum({ user, setActiveTab, navigateToChat }) {
     return (
       <div className="font-lora">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Curriculum</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {user?.role === 'STUDENT' && user?.className
+              ? `Class ${user.className} Curriculum`
+              : 'Curriculum'}
+          </h1>
           <p className="text-gray-600">Your personalised learning journey</p>
         </div>
         <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-16 text-center text-gray-400">
           <AcademicCapIcon className="w-14 h-14 mx-auto mb-4 opacity-40" />
           <p className="text-lg font-medium">No subjects available yet</p>
-          <p className="text-sm mt-2">Your admin hasn't added any curriculum content yet. Check back soon!</p>
+          <p className="text-sm mt-2">
+            {user?.role === 'STUDENT' && user?.className
+              ? `No curriculum has been added for Class ${user.className} yet. Check back soon!`
+              : "Your admin hasn't added any curriculum content yet. Check back soon!"}
+          </p>
         </div>
       </div>
     )
@@ -449,12 +462,19 @@ export default function Curriculum({ user, setActiveTab, navigateToChat }) {
 
   return (
     <div className="font-lora">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Curriculum</h1>
-        <p className="text-gray-600">
-          {syllabi.length} subject{syllabi.length !== 1 ? 's' : ''} · {totalModules} module{totalModules !== 1 ? 's' : ''} · {totalTopics} topic{totalTopics !== 1 ? 's' : ''}
-        </p>
-      </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {user?.role === 'STUDENT' && user?.className
+              ? `Class ${user.className} Curriculum`
+              : 'Curriculum'}
+          </h1>
+          <p className="text-gray-600">
+            {user?.role === 'STUDENT' && user?.className
+              ? `Your Class ${user.className} learning journey · `
+              : ''}
+            {syllabi.length} subject{syllabi.length !== 1 ? 's' : ''} · {totalModules} module{totalModules !== 1 ? 's' : ''} · {totalTopics} topic{totalTopics !== 1 ? 's' : ''}
+          </p>
+        </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {syllabi.map((syllabus, index) => {

@@ -23,6 +23,10 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
         email: user.email,
         role: user.role,          // Backend enum: SUPER_ADMIN, SCHOOL_ADMIN, etc.
         school: user.school || null,
+        className: user.className || null,
+  section: user.section || null,
+  rollNo: user.rollNo || null,
+  schoolId: user.schoolId || null,
       }
       onLogin(normalized)
       onClose()
