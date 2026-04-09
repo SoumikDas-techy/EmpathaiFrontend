@@ -831,7 +831,7 @@ export default function UserManagement({ user }) {
                                                     <td colSpan={6} className="px-8 py-4">
                                                         {(() => {
                                                             const full = expandedUserData[u.id] || u
-                                                            return (
+                                                            return (<>
                                                                 <div className="grid grid-cols-2 gap-4">
                                                                     <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                         <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
@@ -855,6 +855,7 @@ export default function UserManagement({ user }) {
                                                                     <p className="text-sm text-gray-700">{full.address}</p>
                                                                 </div>
                                                             )}
+                                                            </>
                                                         </td>
                                                     </tr>
                                                 )}
