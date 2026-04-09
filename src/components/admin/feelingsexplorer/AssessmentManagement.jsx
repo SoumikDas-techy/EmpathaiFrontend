@@ -16,7 +16,17 @@ import {
 } from '../../../api/Assessmentmanagement'
 export default function AssessmentManagement() {
     const [questions, setQuestions] = useState([])
-       
+      const calculateAgeFromDOB = (dob) => {
+    if (!dob) return null
+    const birth = new Date(dob)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--
+    }
+    return age > 0 ? age : null
+} 
 
     const [groups, setGroups] = useState([])
     
@@ -342,27 +352,26 @@ const questionData = {
                 setIsQuestionModalOpen(false)
             })
     } else {
-        createQuestion(questionData)
-    .then(newQuestion => {
-        console.log('✅ Question saved to DB:', newQuestion)
-        const toAdd = newQuestion && newQuestion.id
-            ? newQuestion
-            : { id: Date.now(), ...questionData }
-        setQuestions(prev => [...prev, toAdd])
-        setIsQuestionModalOpen(false)
-        // re-fetch all questions from DB to stay in sync
-        fetchQuestions(0, 100)
-            .then(data => {
-                const questionList = data?.content || data || []
-                if (questionList.length > 0) setQuestions(questionList)
-            })
-            .catch(err => console.error('Refetch error:', err))
-    })
-    .catch(err => {
-        console.error('❌ Question NOT saved to DB:', err)
-        setQuestions(prev => [...prev, { id: Date.now(), ...questionData }])
-        setIsQuestionModalOpen(false)
-    })
+        // Replace the createQuestion call in handleSaveQuestion:
+const groupIds = questionFormData.groups.map(id => Number(id))
+
+Promise.all(
+    groupIds.map(gid =>
+        createQuestion({ ...questionData, groupMapId: gid })
+    )
+).then(results => {
+    console.log('✅ Questions saved for all groups:', results)
+    setIsQuestionModalOpen(false)
+    fetchQuestions(0, 100)
+        .then(data => {
+            const questionList = data?.content || data || []
+            if (questionList.length > 0) setQuestions(questionList)
+        })
+        .catch(err => console.error('Refetch error:', err))
+}).catch(err => {
+    console.error('❌ Question NOT saved:', err)
+    setIsQuestionModalOpen(false)
+})
     }
 }
    const handleSaveGroup = () => {
@@ -477,23 +486,30 @@ const handleOptionClick = (question, option) => {
 
     const currentGroupId = selectedGroupRef.current
     const currentGroupObj = groupsRef.current.find(g => g.id === currentGroupId)
-    // Use className (e.g. "4th Standard") as groupName so it matches what's stored in DB.
-    // The group's .name is "Class 4th Standard" but responses are keyed by className "4th Standard".
+    
     const groupName = currentGroupObj?.className || currentGroupObj?.name || currentGroupId
     const responseData = {
-        studentId: user?.email || user?.id || 'guest_' + Date.now(),
-        studentName: studentName,
-        age: user?.age || null,
-        className: user?.className || groupName,
-        gender: user?.gender || null,
-        groupId: currentGroupId,       
-        groupName: groupName, 
-        questionId: question.id,
-        questionText: question.questions || question.question || question.text || '',
-        emotion: emotion,
-        answer: option
-    }
-
+    studentId: user?.email || user?.id || 'guest_' + Date.now(),
+    studentName: studentName,
+   
+    age: (() => {
+        const fromDob = calculateAgeFromDOB(user?.dateOfBirth)
+        if (fromDob) return fromDob
+        const raw = user?.age
+        if (!raw || String(raw) === 'null' || String(raw) === 'undefined') return null
+        const n = Number(raw)
+        return isNaN(n) ? null : n
+    })(),
+    className: user?.className || groupName,
+    
+    gender: user?.gender || null,
+    groupId: currentGroupId,
+    groupName: groupName,
+    questionId: question.id,
+    questionText: question.questions || question.question || question.text || '',
+    emotion: emotion,
+    answer: option
+}
    console.log('Saving response:', JSON.stringify(responseData))
    console.log('groupName:', groupName)
    console.log('currentGroupId:', currentGroupId)

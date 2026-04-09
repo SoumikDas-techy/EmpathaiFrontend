@@ -34,6 +34,17 @@ const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
     label: `Class ${ordinal(n)}`,
     value: `${ordinal(n)} Standard`,
 }))
+const calculateAgeFromDOB = (dob) => {
+    if (!dob) return null
+    const birth = new Date(dob)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--
+    }
+    return age > 0 ? age : null
+}
 
 
 export default function UserManagement({ user }) {
@@ -68,11 +79,11 @@ export default function UserManagement({ user }) {
         parentPhone: '',
         phoneNumber: '',
         dateOfBirth: '',
-        address: '',
-        bloodGroup: '',
         emergencyContact: '',
         contactName: '',
         rollNo: '',
+        gender: '',   
+          
     })
 
     const loadUsers = useCallback(async () => {
@@ -179,11 +190,11 @@ export default function UserManagement({ user }) {
                 parentPhone: fullUser.parentEmail || '',   // parentEmail field stores parent phone
                 phoneNumber: fullUser.phoneNumber || '',
                 dateOfBirth: fullUser.dateOfBirth || '',
-                address: fullUser.address || '',
-                bloodGroup: fullUser.bloodGroup || '',
                 emergencyContact: fullUser.emergencyContact || '',
                 contactName: fullUser.contactName || '',
                 rollNo: fullUser.rollNo || '',
+                gender: fullUser.gender || '',   
+                      
             })
         } else {
             setEditingUser(null)
@@ -199,8 +210,6 @@ export default function UserManagement({ user }) {
                 parentPhone: '',
                 phoneNumber: '',
                 dateOfBirth: '',
-                address: '',
-                bloodGroup: '',
                 emergencyContact: '',
                 contactName: '',
                 rollNo: '',
@@ -212,12 +221,12 @@ export default function UserManagement({ user }) {
 
     const validateForm = () => {
         const errors = {}
-        const { name, email, school, rollNo, section, parentName, address, bloodGroup, dateOfBirth, password, phoneNumber, parentPhone } = formData
+        const { name, email, school, rollNo, section, parentName,  dateOfBirth, password, phoneNumber, parentPhone } = formData
 
         if (!name.trim()) errors.name = "Name is required"
 
         if (activeTab === 'schools') {
-            if (!address?.trim()) errors.address = "Address is required"
+            
             if (!formData.contactName?.trim()) errors.contactName = "Contact Name is required"
             if (!email?.trim()) errors.email = "Email is required"
             const dup = schoolsData.find(s => s.name.toLowerCase() === name.trim().toLowerCase() && (!editingUser || s.id !== editingUser.id))
@@ -236,8 +245,6 @@ export default function UserManagement({ user }) {
                 if (!formData.class?.trim()) errors.class = "Class is required"
                 if (!section?.trim()) errors.section = "Section is required"
                 if (!parentName?.trim()) errors.parentName = "Parent Name is required"
-                if (!address?.trim()) errors.address = "Address is required"
-                if (!bloodGroup?.trim()) errors.bloodGroup = "Blood Group is required"
                 if (!dateOfBirth) errors.dateOfBirth = "Date of Birth is required"
             }
         }
@@ -272,25 +279,24 @@ export default function UserManagement({ user }) {
                     email: formData.email || undefined
                 })
             } else {
-                const payload = {
-                    name: formData.name,
-                    email: formData.email,
-                    role: TAB_ROLE_MAP[formData.role] || formData.role,
-                    password: formData.password || undefined,
-                    phoneNumber: formData.phoneNumber || undefined,
-                    school: formData.school || undefined,
-                    className: formData.class || undefined,
-                    grade: formData.class || undefined,
-                    parentName: formData.parentName || undefined,
-                    // FIX: parentPhone (parent's phone number) maps to parentEmail field in backend
-                    parentEmail: formData.parentPhone || undefined,
-                    dateOfBirth: formData.dateOfBirth || undefined,
-                    address: formData.address || undefined,
-                    bloodGroup: formData.bloodGroup || undefined,
-                    emergencyContact: formData.emergencyContact || undefined,
-                    rollNo: formData.rollNo || undefined,   // FIX: was being sent as undefined due to field name mismatch
-                    section: formData.section || undefined,
-                }
+               const payload = {
+    name: formData.name,
+    email: formData.email,
+    role: TAB_ROLE_MAP[formData.role] || formData.role,
+    password: formData.password || undefined,
+    phoneNumber: formData.phoneNumber || undefined,
+    school: formData.school || undefined,
+    className: formData.class || undefined,
+    grade: formData.class || undefined,
+    parentName: formData.parentName || undefined,
+    parentEmail: formData.parentPhone || undefined,
+    dateOfBirth: formData.dateOfBirth || undefined,
+    age: formData.dateOfBirth ? calculateAgeFromDOB(formData.dateOfBirth) : undefined,
+    emergencyContact: formData.emergencyContact || undefined,
+    rollNo: formData.rollNo || undefined,
+    section: formData.section || undefined,
+    gender: formData.gender || undefined,   
+}
                 if (editingUser) {
                     await updateUser(editingUser.id, payload)
                 } else {
@@ -299,6 +305,18 @@ export default function UserManagement({ user }) {
             }
             setIsModalOpen(false)
             setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`)
+            const savedUser = localStorage.getItem('user')
+const currentUser = savedUser ? JSON.parse(savedUser) : null
+if (editingUser && currentUser && currentUser.id === editingUser.id && formData.dateOfBirth) {
+   localStorage.setItem('user', JSON.stringify({
+    ...userFromApi,
+    age: userFromApi.dateOfBirth 
+        ? calculateAgeFromDOB(userFromApi.dateOfBirth) 
+        : (userFromApi.age || null),
+    dateOfBirth: userFromApi.dateOfBirth || null,
+    gender: userFromApi.gender || null,   
+}))
+}
             setTimeout(() => setSuccessMessage(null), 3000)
             await loadUsers()
         } catch (err) {
@@ -665,12 +683,7 @@ export default function UserManagement({ user }) {
                                                             const full = expandedUserData[u.id] || u
                                                             return (
                                                                 <div className="grid grid-cols-2 gap-4">
-                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Blood Group</p>
-                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                                            {full.bloodGroup || '—'}
-                                                                        </span>
-                                                                    </div>
+                                                                    
                                                                     <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                         <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
                                                                         <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
@@ -807,27 +820,27 @@ export default function UserManagement({ user }) {
                                                     {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
                                                 </div>
                                             </div>
+          
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium">Blood Group</label>
-                                                    <select value={formData.bloodGroup} onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.bloodGroup ? 'border-red-500' : 'border-gray-300'}`}>
-                                                        <option value="">Select Blood Group</option>
-                                                        <option value="A+">A+</option>
-                                                        <option value="A-">A-</option>
-                                                        <option value="B+">B+</option>
-                                                        <option value="B-">B-</option>
-                                                        <option value="AB+">AB+</option>
-                                                        <option value="AB-">AB-</option>
-                                                        <option value="O+">O+</option>
-                                                        <option value="O-">O-</option>
-                                                    </select>
-                                                    {validationErrors.bloodGroup && <p className="text-red-500 text-xs mt-1">{validationErrors.bloodGroup}</p>}
-                                                </div>
+                                                
                                                 <div>
                                                     <label className="block text-sm font-medium">Email</label>
                                                     <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
                                                     {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                 </div>
+                                                <div>
+        <label className="block text-sm font-medium">Gender</label>
+        <select
+            value={formData.gender}
+            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+        >
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
@@ -861,11 +874,7 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Address</label>
-                                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
-                                                {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
-                                            </div>
+                                           
                                         </>
                                     ) : (
                                         <>
@@ -898,6 +907,7 @@ export default function UserManagement({ user }) {
                                                     </select>
                                                     {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
                                                 </div>
+                                                
                                             )}
                                         </>
                                     )}
