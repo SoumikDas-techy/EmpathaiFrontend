@@ -4,12 +4,7 @@ import {
     CalendarIcon, PlusIcon, TrashIcon, CheckCircleIcon,
     ArrowRightIcon, ChevronDownIcon, ChevronUpIcon,
     StarIcon, PencilIcon, ExclamationTriangleIcon,
-    SparklesIcon, XMarkIcon, PaperAirplaneIcon, ChevronRightIcon
 } from '@heroicons/react/24/outline'
-import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
-
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-const GROQ_MODEL = 'llama-3.3-70b-versatile'
 
 function TimeSelect({ value, onChange, label }) {
     const toH = (v) => { if (!v) return '12'; const [h] = v.split(':').map(Number); return h % 12 === 0 ? '12' : String(h % 12) }
@@ -37,301 +32,6 @@ function TimeSelect({ value, onChange, label }) {
     )
 }
 
-function AIAgent({ tasks, setTasks, activeDay, setActiveDay, externalOpen, setExternalOpen }) {
-    const [open, setOpen] = useState(false)
-    const [messages, setMessages] = useState([{
-        role: 'assistant',
-        content: "Hi! I'm your AI schedule assistant 🧠✨\n\nI can help you:\n\n• **Add tasks** — \"Add gym 7-8am Monday\"\n• **Delete tasks** — \"Remove math revision\"\n• **Move tasks** — \"Move yoga to Thursday 6pm\"\n• **Clear a day** — \"Clear all Sunday tasks\"\n• **Fill your day** — \"Fill Wednesday with study blocks\"\n• **Ask anything** — \"What's my busiest day?\"\n\nJust tell me what you need!"
-    }])
-    const [input, setInput] = useState('')
-    const [loading, setLoading] = useState(false)
-    const [pending, setPending] = useState(null)
-    const bottomRef = useRef(null)
-    const inputRef = useRef(null)
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
-    useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 100) }, [open])
-    useEffect(() => { if (externalOpen) { setOpen(true); if (setExternalOpen) setExternalOpen(false) } }, [externalOpen])
-
-    const buildPrompt = () => {
-        const snapshot = days.map(day => {
-            const dt = tasks[day]
-            if (!dt.length) return `${day}: (empty)`
-            return `${day}:\n` + dt.map(t =>
-                `  - [id:${t.id}] "${t.title}" ${t.startTime}→${t.endTime} [${t.detectedType || 'OTHER'}]${t.completed ? ' ✓done' : ''}${t.notes ? ` notes:"${t.notes}"` : ''}`
-            ).join('\n')
-        }).join('\n')
-
-        return `You are a smart, friendly AI scheduling assistant inside a weekly planner app. The user is currently viewing: ${activeDay}.
-
-CURRENT SCHEDULE:
-${snapshot}
-
-RULES:
-- Always reply with ONLY raw JSON, no markdown, no backticks, no extra text.
-- JSON format: { "message": "friendly reply", "actions": [ ...array of actions or empty ] }
-
-ACTION TYPES:
-{ "type": "add", "day": "Monday", "task": { "title": "...", "startTime": "HH:MM", "endTime": "HH:MM", "notes": "" } }
-{ "type": "delete", "day": "Monday", "taskId": 123 }
-{ "type": "edit", "day": "Monday", "taskId": 123, "changes": { "title":"...", "startTime":"HH:MM", "endTime":"HH:MM", "notes":"..." } }
-{ "type": "complete", "day": "Monday", "taskId": 123, "completed": true }
-{ "type": "move", "fromDay": "Monday", "toDay": "Tuesday", "taskId": 123, "newStartTime": "HH:MM", "newEndTime": "HH:MM" }
-{ "type": "clearDay", "day": "Monday" }
-{ "type": "switchDay", "day": "Monday" }
-
-SMART TIME RULES:
-- "morning" = 08:00-09:00, "mid-morning" = 10:00-11:00, "noon/lunch" = 12:00-13:00
-- "afternoon" = 14:00-15:00, "late afternoon" = 16:00-17:00, "evening" = 18:00-19:00, "night" = 20:00-21:00
-- Default duration: 1h general, 30min breaks, 90min gym/workout, 2h deep study
-- "today" = ${activeDay}, "tomorrow" = ${days[(days.indexOf(activeDay) + 1) % 7]}
-- NEVER schedule overlapping tasks — pick next free slot if conflict
-- Be warm, encouraging, use 1-2 emojis max in message
-- If request is unclear, ask for clarification with actions=[]`
-    }
-
-    const applyActions = (actions) => {
-        setTasks(prev => {
-            const updated = {}
-            days.forEach(d => { updated[d] = [...(prev[d] || [])] })
-            for (const a of actions) {
-                if (a.type === 'add') {
-                    updated[a.day] = [...updated[a.day], { ...a.task, id: Date.now() + Math.random(), completed: false, detectedType: 'OTHER' }]
-                } else if (a.type === 'delete') {
-                    updated[a.day] = updated[a.day].filter(t => t.id !== a.taskId)
-                } else if (a.type === 'edit') {
-                    updated[a.day] = updated[a.day].map(t => t.id === a.taskId ? { ...t, ...a.changes } : t)
-                } else if (a.type === 'complete') {
-                    updated[a.day] = updated[a.day].map(t => t.id === a.taskId ? { ...t, completed: a.completed } : t)
-                } else if (a.type === 'move') {
-                    const task = updated[a.fromDay].find(t => t.id === a.taskId)
-                    if (task) {
-                        updated[a.fromDay] = updated[a.fromDay].filter(t => t.id !== a.taskId)
-                        updated[a.toDay] = [...updated[a.toDay], { ...task, startTime: a.newStartTime || task.startTime, endTime: a.newEndTime || task.endTime, id: Date.now() + Math.random() }]
-                    }
-                } else if (a.type === 'clearDay') {
-                    updated[a.day] = []
-                }
-            }
-            return updated
-        })
-        const sw = actions.find(a => a.type === 'switchDay')
-        if (sw) setActiveDay(sw.day)
-    }
-
-    const send = async () => {
-        if (!input.trim() || loading) return
-        const userText = input.trim()
-        setInput('')
-        const newMessages = [...messages, { role: 'user', content: userText }]
-        setMessages(newMessages)
-        setLoading(true)
-        setPending(null)
-
-        try {
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${GROQ_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    model: GROQ_MODEL,
-                    temperature: 0.3,
-                    max_tokens: 1024,
-                    messages: [
-                        { role: 'system', content: buildPrompt() },
-                        ...newMessages.map(m => ({ role: m.role, content: m.content }))
-                    ]
-                })
-            })
-
-            const data = await res.json()
-            const raw = data.choices?.[0]?.message?.content || ''
-            let parsed = { message: raw, actions: [] }
-
-            try {
-                const clean = raw.replace(/```json|```/g, '').trim()
-                const match = clean.match(/\{[\s\S]*\}/)
-                if (match) parsed = JSON.parse(match[0])
-            } catch { /* use raw as message */ }
-
-            if (parsed.actions?.length > 0) {
-                setPending(parsed.actions)
-                setMessages(prev => [...prev, { role: 'assistant', content: parsed.message, actions: parsed.actions, pendingConfirm: true }])
-            } else {
-                setMessages(prev => [...prev, { role: 'assistant', content: parsed.message }])
-            }
-        } catch (err) {
-            setMessages(prev => [...prev, { role: 'assistant', content: `Oops, something went wrong: ${err.message}. Please try again! 🙏` }])
-        }
-        setLoading(false)
-    }
-
-    const confirm = () => {
-        if (!pending) return
-        applyActions(pending)
-        setPending(null)
-        setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, pendingConfirm: false, confirmed: true } : m))
-    }
-
-    const cancel = () => {
-        setPending(null)
-        setMessages(prev => [
-            ...prev.map((m, i) => i === prev.length - 1 ? { ...m, pendingConfirm: false, cancelled: true } : m),
-            { role: 'assistant', content: "No problem, cancelled! What else can I help with? 😊" }
-        ])
-    }
-
-    const fmt = (text) => {
-        if (!text) return null
-        return text.split('\n').map((line, li, arr) => {
-            const parts = line.split(/(\*\*[^*]+\*\*)/g)
-            return <span key={li}>{parts.map((p, pi) => p.startsWith('**') && p.endsWith('**') ? <strong key={pi}>{p.slice(2, -2)}</strong> : <span key={pi}>{p}</span>)}{li < arr.length - 1 && <br />}</span>
-        })
-    }
-
-    const actionLabel = (a) => {
-        if (a.type === 'add') return `➕ Add "${a.task?.title}" on ${a.day}`
-        if (a.type === 'delete') return `🗑 Delete task on ${a.day}`
-        if (a.type === 'edit') return `✏️ Edit task on ${a.day}`
-        if (a.type === 'complete') return `✅ Mark task ${a.completed ? 'done' : 'undone'} on ${a.day}`
-        if (a.type === 'move') return `📦 Move task: ${a.fromDay} → ${a.toDay}`
-        if (a.type === 'clearDay') return `🧹 Clear all tasks on ${a.day}`
-        if (a.type === 'switchDay') return `👁 Switch view to ${a.day}`
-        return null
-    }
-
-    const suggestions = [
-        "What's my busiest day?",
-        "Add morning workout Monday",
-        "Fill Wednesday with study",
-        "What free time do I have?",
-    ]
-
-    return (
-        <>
-            {open && (
-                <div
-                    className="fixed top-[72px] right-4 z-50 w-[370px] max-w-[calc(100vw-2rem)] flex flex-col bg-white rounded-2xl border-2 border-violet-200 overflow-hidden"
-                    style={{ height: '580px', maxHeight: 'calc(100vh-5rem)', boxShadow: '0 20px 60px rgba(167,139,250,0.25), 0 8px 32px rgba(0,0,0,0.12)' }}
-                >
-                    {/* Header */}
-                    <div className="flex-shrink-0 bg-gradient-to-r from-violet-400 to-purple-500 px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center">
-                                <SparklesIcon className="w-4 h-4 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-white font-black text-sm">Schedule Planner</p>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
-                                    <p className="text-white/80 text-xs font-medium">Powered by Groq · Llama 3.3</p>
-                                </div>
-                            </div>
-                        </div>
-                        <button onClick={() => setOpen(false)} className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 flex items-center justify-center transition-colors">
-                            <XMarkIcon className="w-4 h-4 text-white" />
-                        </button>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4">
-                        {messages.map((msg, idx) => {
-                            const isUser = msg.role === 'user'
-                            const visibleActions = msg.actions?.filter(a => a.type !== 'switchDay') || []
-                            return (
-                                <div key={idx} className={`flex mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                    {!isUser && (
-                                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-300 to-purple-400 flex items-center justify-center flex-shrink-0 mr-2 mt-1">
-                                            <SparklesIcon className="w-3.5 h-3.5 text-white" />
-                                        </div>
-                                    )}
-                                    <div className="max-w-[85%]">
-                                        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? 'bg-violet-400 text-white rounded-tr-sm' : 'bg-gray-50 border border-gray-200 text-gray-800 rounded-tl-sm'}`}>
-                                            {fmt(msg.content)}
-                                        </div>
-
-                                        {visibleActions.length > 0 && !msg.cancelled && (
-                                            <div className="mt-2 bg-amber-50 border-2 border-amber-200 rounded-xl p-3">
-                                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-2">Proposed Changes</p>
-                                                <div className="space-y-1 mb-3">
-                                                    {visibleActions.map((a, i) => (
-                                                        <div key={i} className="text-xs text-gray-700 font-medium flex items-center gap-1.5">
-                                                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" />
-                                                            {actionLabel(a)}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {msg.pendingConfirm && (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={cancel} className="flex-1 py-1.5 rounded-lg border-2 border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-100 transition-colors">Cancel</button>
-                                                        <button onClick={confirm} className="flex-1 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition-colors">✓ Apply</button>
-                                                    </div>
-                                                )}
-                                                {msg.confirmed && <p className="text-xs font-bold text-violet-600 text-center">✓ Applied to your schedule!</p>}
-                                                {msg.cancelled && <p className="text-xs font-bold text-gray-400 text-center">Cancelled</p>}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )
-                        })}
-
-                        {loading && (
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-300 to-purple-400 flex items-center justify-center flex-shrink-0">
-                                    <SparklesIcon className="w-3.5 h-3.5 text-white" />
-                                </div>
-                                <div className="bg-gray-50 border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3">
-                                    <div className="flex gap-1.5 items-center">
-                                        {[0, 1, 2].map(i => <div key={i} className="w-2 h-2 bg-violet-300 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        <div ref={bottomRef} />
-                    </div>
-
-                    {/* Suggestions */}
-                    {messages.length <= 1 && (
-                        <div className="flex-shrink-0 px-4 pb-2 flex flex-wrap gap-1.5">
-                            {suggestions.map((s, i) => (
-                                <button key={i} onClick={() => setInput(s)}
-                                    className="text-xs bg-violet-50 border border-violet-200 text-violet-600 font-bold px-2.5 py-1 rounded-full hover:bg-violet-100 transition-colors flex items-center gap-1">
-                                    <ChevronRightIcon className="w-3 h-3" />{s}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Input */}
-                    <div className="flex-shrink-0 p-3 border-t border-gray-100">
-                        <div className="flex gap-2 items-end">
-                            <textarea
-                                ref={inputRef}
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-                                placeholder="Ask me anything about your schedule..."
-                                rows={1}
-                                className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-100 focus:border-violet-300 outline-none text-sm resize-none font-medium text-gray-800 transition-colors"
-                                style={{ maxHeight: '100px', overflowY: 'auto' }}
-                            />
-                            <button onClick={send} disabled={!input.trim() || loading}
-                                className="w-10 h-10 rounded-xl bg-violet-400 text-white flex items-center justify-center hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 flex-shrink-0">
-                                <PaperAirplaneIcon className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-gray-400 text-center mt-1.5">Enter to send · Shift+Enter for new line</p>
-                    </div>
-                </div>
-            )}
-        </>
-    )
-}
-
 export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, user }) {
     const [showAddTask, setShowAddTask] = useState(false)
     const [newTask, setNewTask] = useState({ startTime: '09:00', endTime: '10:00', title: '', notes: '' })
@@ -342,19 +42,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     const [conflictTimes, setConflictTimes] = useState({})
     const [pushError, setPushError] = useState('')
     const [expandedTask, setExpandedTask] = useState(null)
-    const [dayRatings, setDayRatings] = useState({})
     const [editingTask, setEditingTask] = useState(null)
     const [editData, setEditData] = useState({})
     const [editError, setEditError] = useState('')
-    const [openAgent, setOpenAgent] = useState(false)
     const [addWarnings, setAddWarnings] = useState([])
     const [editWarnings, setEditWarnings] = useState([])
     const [isSaving, setIsSaving] = useState(false)
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-
-    // ✅ REMOVED: mapGradeToClass function - backend handles this
-    // ✅ REMOVED: studyCapMap hardcoded caps - backend has these in database
 
     const normaliseTask = (task) => {
         if (task.startTime) return task
@@ -394,9 +89,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     const tHrs = Math.floor(tMins / 60)
     const tMin = tMins % 60
 
-    // ✅ REMOVED: Frontend study cap calculation - backend handles this via Rule 2
-    // ✅ REMOVED: Frontend wellness warning logic - backend handles this via Rule 8
-
     const typeColors = {
         Study: { bg: 'bg-blue-500', light: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
         Wellness: { bg: 'bg-emerald-500', light: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
@@ -430,14 +122,12 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 newTask.endTime,
                 newTask.notes
             )
-            // saved is the TaskResponse from backend with detectedType and warnings
             setTasks(prev => ({
                 ...prev,
                 [activeDay]: [...prev[activeDay], { ...saved, completed: false }]
             }))
             if (saved.warnings && saved.warnings.length > 0) {
                 setAddWarnings(saved.warnings)
-                // keep modal open briefly to show warnings, then close after 3s
                 setTimeout(() => {
                     setAddWarnings([])
                     setShowAddTask(false)
@@ -548,28 +238,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     }
 
     const closePush = () => { setShowPushModal(false); setPushNonConflicts([]); setPushConflicts([]); setConflictTimes({}); setPushError('') }
-    const setRating = (day, r) => setDayRatings(p => ({ ...p, [day]: p[day] === r ? 0 : r }))
 
     return (
         <div className="font-lora relative">
 
-            <AIAgent tasks={tasks} setTasks={setTasks} activeDay={activeDay} setActiveDay={setActiveDay} externalOpen={openAgent} setExternalOpen={setOpenAgent} />
-
             {/* Header */}
-            <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-black mb-2">My Schedule 📅</h1>
-                    <p className="text-gray-600 font-medium">Plan your week for success and balance</p>
-                </div>
-                <button
-                    onClick={() => setOpenAgent(true)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-violet-400 to-purple-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:scale-105 transition-all duration-200 flex-shrink-0"
-                    style={{ boxShadow: '0 4px 16px rgba(167,139,250,0.4)' }}
-                >
-                    <SparklesIcon className="w-4 h-4" />
-                    Schedule Planner
-                    <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse" />
-                </button>
+            <div className="mb-6">
+                <h1 className="text-3xl font-black text-black mb-2">My Schedule 📅</h1>
+                <p className="text-gray-600 font-medium">Plan your week for success and balance</p>
             </div>
 
             {/* Progress */}
@@ -590,20 +266,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                         {[25, 50, 75, 100].map(m => (
                             <span key={m} className={`absolute text-[10px] font-bold -translate-x-1/2 ${pct >= m ? 'text-green-500' : 'text-gray-300'}`} style={{ left: `${m}%` }}>{m}%</span>
                         ))}
-                    </div>
-
-                    {/* ✅ REMOVED: Frontend study cap progress bar - backend validates this */}
-
-                    {/* Star Rating */}
-                    <div className="mt-3 pt-3 border-t border-violet-100 flex items-center gap-3 flex-wrap">
-                        <span className="text-xs font-black text-gray-500">Rate your day:</span>
-                        <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map(s => {
-                                const filled = (dayRatings[activeDay] || 0) >= s
-                                return <button key={s} onClick={() => setRating(activeDay, s)} className="transition-transform hover:scale-125">{filled ? <StarSolid className="w-5 h-5 text-yellow-400" /> : <StarIcon className="w-5 h-5 text-gray-300 hover:text-yellow-300" />}</button>
-                            })}
-                        </div>
-                        {dayRatings[activeDay] > 0 && <span className="text-xs font-bold text-gray-400">{['', 'Rough 😓', 'Could be better 😐', 'Not bad 🙂', 'Great! 😊', 'Incredible! 🌟'][dayRatings[activeDay]]}</span>}
                     </div>
                 </div>
             )}
@@ -659,15 +321,17 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     <CalendarIcon className="w-8 h-8 text-violet-300" />
                                 </div>
                                 <p className="text-gray-500 font-medium">No plans yet for {activeDay}</p>
-                                <p className="text-sm text-violet-400 mb-4">Add tasks or ask the AI assistant!</p>
-                                <button onClick={() => setOpenAgent(true)} className="flex items-center gap-2 text-sm text-violet-500 font-bold bg-violet-50 px-4 py-2 rounded-xl border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer">
-                                    <SparklesIcon className="w-4 h-4" />Try the AI assistant ✨
+                                <p className="text-sm text-violet-400 mb-4">Add your first activity to get started!</p>
+                                <button
+                                    onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
+                                    className="flex items-center gap-2 text-sm text-violet-500 font-bold bg-violet-50 px-4 py-2 rounded-xl border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer"
+                                >
+                                    <PlusIcon className="w-4 h-4" />Add your first activity
                                 </button>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 {sorted.map(task => {
-                                    // ✅ USE BACKEND detectedType instead of frontend calculation
                                     const detectedType = task.detectedType
                                         ? task.detectedType.charAt(0).toUpperCase() + task.detectedType.slice(1).toLowerCase()
                                         : 'Other'
@@ -677,10 +341,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     const isExp = expandedTask === task.id
                                     const hasNote = task.notes?.trim().length > 0
                                     return (
-                                        <div key={task.id} className={`border-2 rounded-xl transition-all duration-300 ${task.completed
-                                            ? 'bg-gray-50 border-gray-200'
-                                            : `bg-white ${colors.border}`
-                                            }`}>
+                                        <div
+                                            key={task.id}
+                                            className={`border-2 rounded-xl transition-all duration-300 ${
+                                                task.completed
+                                                    ? `bg-white ${colors.border}`
+                                                    : 'bg-gray-50 border-gray-300'
+                                            }`}
+                                        >
                                             <div className="group flex items-center gap-3 p-4 cursor-pointer hover:opacity-90" onClick={() => toggleDone(task.id)}>
                                                 <button onClick={e => { e.stopPropagation(); toggleDone(task.id) }}
                                                     className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.completed
@@ -689,14 +357,10 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                                         }`}>
                                                     {task.completed && <CheckCircleIcon className="w-5 h-5" />}
                                                 </button>
-                                                <div className={`w-1 h-10 rounded-full flex-shrink-0 ${task.completed ? 'bg-gray-300' : colors.bg
-                                                    }`} />
+                                                <div className={`w-1 h-10 rounded-full flex-shrink-0 ${colors.bg}`} />
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start gap-2">
-                                                        <h3 className={`font-bold text-lg ${task.completed
-                                                            ? 'text-gray-400'
-                                                            : 'text-black'
-                                                            }`}>{task.title}</h3>
+                                                        <h3 className={`font-bold text-lg ${task.completed ? 'text-black' : 'text-gray-400'}`}>{task.title}</h3>
                                                         <div className="flex items-center gap-1.5 flex-shrink-0">
                                                             {overdue && !task.completed && (
                                                                 <span className="text-xs bg-red-100 text-red-600 font-black px-2 py-0.5 rounded-full border border-red-200">
@@ -704,16 +368,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                                                 </span>
                                                             )}
                                                             {dur && (
-                                                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">
+                                                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
                                                                     {dur}
                                                                 </span>
                                                             )}
-                                                            <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide ${task.completed ? 'bg-gray-100 text-gray-400' : `${colors.light} ${colors.text}`
-                                                                }`}>{detectedType}</span>
+                                                            <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide ${colors.light} ${colors.text}`}>{detectedType}</span>
                                                         </div>
                                                     </div>
-                                                    <p className={`text-sm font-medium mt-0.5 ${task.completed ? 'text-gray-400' : 'text-gray-500'
-                                                        }`}>{fmtTime(task.startTime)} → {fmtTime(task.endTime)}</p>
+                                                    <p className={`text-sm font-medium mt-0.5 ${task.completed ? 'text-gray-500' : 'text-gray-400'}`}>{fmtTime(task.startTime)} → {fmtTime(task.endTime)}</p>
                                                 </div>
                                                 <div className="flex items-center gap-1 flex-shrink-0">
                                                     <button onClick={e => { e.stopPropagation(); setExpandedTask(isExp ? null : task.id) }} className={`p-2 rounded-lg transition-all ${isExp ? 'bg-violet-100 text-violet-500' : hasNote ? 'text-violet-300 hover:bg-violet-50' : 'text-gray-300 hover:text-gray-400 hover:bg-gray-50'}`}>
@@ -767,7 +429,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     ⚠️ {editError}
                                 </div>
                             )}
-                            {/* ✅ BACKEND WARNINGS DISPLAY */}
                             {editWarnings.length > 0 && (
                                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl px-4 py-2 text-amber-700 text-sm font-medium space-y-1">
                                     {editWarnings.map((w, i) => <p key={i}>⚠️ {w}</p>)}
@@ -808,7 +469,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     ⚠️ {overlapError}
                                 </div>
                             )}
-                            {/* ✅ BACKEND WARNINGS DISPLAY */}
                             {addWarnings.length > 0 && (
                                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl px-4 py-2 text-amber-700 text-sm font-medium space-y-1">
                                     {addWarnings.map((w, i) => <p key={i}>⚠️ {w}</p>)}
@@ -826,7 +486,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 </div>
             )}
 
-            {/* Push Modal (unchanged) */}
+            {/* Push Modal */}
             {showPushModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-amber-200 shadow-xl max-h-[90vh] overflow-y-auto">
