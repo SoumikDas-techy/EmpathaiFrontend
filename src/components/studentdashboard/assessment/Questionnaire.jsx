@@ -63,15 +63,14 @@ export default function Questionnaire ({ user }) {
           const mapped = data.map((q, i) => ({
             id:       q.id || i + 1,
             text:     q.questions || q.questionText || '',
-            // We added q.group_map to catch the snake_case column
             groupMap: q.group_map || q.groupMap  || '',
             options: [
-              // We added q.option_a, q.option_b, etc. to match MySQL
-              { value: 8, label: q.option_a || q.optionA || 'Very good (8-10)', emotion: detectEmotion(q.option_a || q.optionA || '') },
-              { value: 6, label: q.option_b || q.optionB || 'Okay (5-7)',        emotion: detectEmotion(q.option_b || q.optionB || '') },
-              { value: 3, label: q.option_c || q.optionC || 'Low (2-4)',         emotion: detectEmotion(q.option_c || q.optionC || '') },
-              { value: 1, label: q.option_d || q.optionD || 'Very low (0-1)',    emotion: detectEmotion(q.option_d || q.optionD || '') }
-            ].filter(o => o.label.trim())
+              
+              { value: 8, label: (q.option_a || q.optionA || '').trim(), emotion: detectEmotion(q.option_a || q.optionA || '') },
+              { value: 6, label: (q.option_b || q.optionB || '').trim(), emotion: detectEmotion(q.option_b || q.optionB || '') },
+              { value: 3, label: (q.option_c || q.optionC || '').trim(), emotion: detectEmotion(q.option_c || q.optionC || '') },
+              { value: 1, label: (q.option_d || q.optionD || '').trim(), emotion: detectEmotion(q.option_d || q.optionD || '') }
+            ].filter(o => o.label !== '')   // only keep options that actually have a label
           }))
           setApiQuestions(mapped)
         } else {
@@ -89,14 +88,9 @@ export default function Questionnaire ({ user }) {
       const t = setTimeout(() => setShowGrid(false), 2000)
       return () => clearTimeout(t)
     }
-  }, [currentQuestion]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentQuestion])
 
-  const emojiSequences = {
-    happy:   ['🙂', '😊', '😄', '😆'],
-    neutral: ['😐', '🙂'],
-    concern: ['😕', '😟'],
-    sad:     ['😔', '😢', '😭']
-  }
+  
 
   const defaultQuestions = [
     {
@@ -169,7 +163,7 @@ const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.leng
 
      console.log('[Questionnaire] Saving response:', payload)
    try {
-  await createResponse(payload)   // ← already imported at top of file
+  await createResponse(payload)
   console.log('[Questionnaire] Response saved ✅')
 } catch (err) {
   console.error('[Questionnaire] Failed to save response:', err)
