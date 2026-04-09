@@ -184,3 +184,20 @@ export function deleteModule(id) {
 export const getUserById = (id) => {
   return apiGet(`/api/users/${id}`)
 }
+
+
+export function getClassesBySchool(schoolId) {
+  return apiGet(`/api/schools/${schoolId}/classes`);
+}
+
+// ── Students by class (Level 3) ───────────────────────────────────────────────
+
+export function getStudentsByClass(schoolId, className) {
+  return apiGet(`/api/schools/${schoolId}/classes/${encodeURIComponent(className)}/students`);
+}
+
+// ── Single student detail (Level 3b fallback) ─────────────────────────────────
+
+export function getStudentDetail(schoolId, className, studentId) {
+  return apiGet(`/api/schools/${schoolId}/classes/${encodeURIComponent(className)}/students/${studentId}`);
+}
