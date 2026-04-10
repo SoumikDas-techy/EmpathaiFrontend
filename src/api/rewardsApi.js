@@ -46,39 +46,24 @@ export async function deleteBadge(id) {
 
 // ── Student Badges ─────────────────────────────────────────────────────────────
 // GET /api/rewards/students/{studentId}/badges
-// This endpoint is permitAll on the backend — no auth required.
-// We intentionally do NOT send the Authorization header here because an expired
-// or invalid JWT causes Spring Security to reject the request with 403 even on
-// permitAll routes (the JWT filter throws, leaving the request unauthenticated,
-// which then hits the anyRequest().authenticated() fallback).
+//
+// BUG FIX: The previous implementation first tried the request WITHOUT a token,
+// which caused the backend to immediately reject it (the endpoint requires
+// authentication). The backend returned a 403/500 before the retry-with-token
+// logic could kick in. Now we always send the JWT on the first attempt.
 
 export async function fetchStudentBadges(studentId) {
   const url = `${BASE_URL}${BASE}/students/${studentId}/badges`
+  const token = getAccessToken()
 
-  // First try: plain fetch with no token (the endpoint is public)
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  })
-
-  // If it works, great
-  if (res.ok) return res.json()
-
-  // If plain fetch fails (e.g. server requires auth after all), retry with token
-  if (res.status === 401 || res.status === 403) {
-    const token = getAccessToken()
-    if (token) {
-      const retryRes = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      })
-      if (retryRes.ok) return retryRes.json()
-      throw new Error(`Failed to fetch student badges (HTTP ${retryRes.status})`)
-    }
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
   }
+
+  const res = await fetch(url, { method: 'GET', headers })
+
+  if (res.ok) return res.json()
 
   throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
 }

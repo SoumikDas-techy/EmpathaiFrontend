@@ -61,7 +61,26 @@ export async function apiRequest(path, options = {}) {
     ...(options.headers || {})
   };
 
-  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  } catch (networkErr) {
+    // fetch() itself threw — the backend is unreachable (ECONNREFUSED).
+    // The Vite proxy converts this to a 503 JSON response, but if for any
+    // reason it doesn't, we catch the raw network error here too.
+    throw new Error(
+      'Cannot reach the server. Make sure the backend is running:\n' +
+      '  cd EmpathaiBackend-main && mvn spring-boot:run'
+    );
+  }
+
+  // Vite proxy returns 503 with a JSON body when the backend is down
+  if (response.status === 503) {
+    throw new Error(
+      'Backend server is not running. Start it with:\n' +
+      '  cd EmpathaiBackend-main && mvn spring-boot:run'
+    );
+  }
 
   if (response.status === 401 && path !== '/api/auth/login') {
     if (!isRefreshing) {
