@@ -10,11 +10,13 @@ export async function fetchBadges() {
   return res.json()
 }
 
-export async function createBadge({ title, triggerType, triggerTitle, imageFile }) {
+export async function createBadge({ title, description, triggerType, triggerValue, triggerTitle, imageFile }) {
   const form = new FormData()
   form.append('title', title)
+  if (description) form.append('description', description)
   form.append('triggerType', triggerType)
-  form.append('triggerTitle', triggerTitle)
+  form.append('triggerValue', triggerValue)
+  if (triggerTitle) form.append('triggerTitle', triggerTitle)
   if (imageFile) form.append('image', imageFile)
 
   const res = await apiRequest(`${BASE}/badges`, { method: 'POST', body: form })
@@ -22,11 +24,13 @@ export async function createBadge({ title, triggerType, triggerTitle, imageFile 
   return res.json()
 }
 
-export async function updateBadge(id, { title, triggerType, triggerTitle, imageFile }) {
+export async function updateBadge(id, { title, description, triggerType, triggerValue, triggerTitle, imageFile }) {
   const form = new FormData()
   form.append('title', title)
+  if (description) form.append('description', description)
   form.append('triggerType', triggerType)
-  form.append('triggerTitle', triggerTitle)
+  form.append('triggerValue', triggerValue)
+  if (triggerTitle) form.append('triggerTitle', triggerTitle)
   if (imageFile) form.append('image', imageFile)
 
   const res = await apiRequest(`${BASE}/badges/${id}`, { method: 'PUT', body: form })
@@ -37,6 +41,16 @@ export async function updateBadge(id, { title, triggerType, triggerTitle, imageF
 export async function deleteBadge(id) {
   const res = await apiRequest(`${BASE}/badges/${id}`, { method: 'DELETE' })
   if (!res.ok) throw new Error('Failed to delete badge')
+}
+
+// ── Student Badges ─────────────────────────────────────────────────────────────
+// GET /api/rewards/students/{studentId}/badges
+// Returns all badges earned by the student (with earnedAt timestamp)
+
+export async function fetchStudentBadges(studentId) {
+  const res = await apiRequest(`${BASE}/students/${studentId}/badges`)
+  if (!res.ok) throw new Error('Failed to fetch student badges')
+  return res.json()
 }
 
 // ── Achievements ──────────────────────────────────────────────────────────────
