@@ -33,6 +33,9 @@ export default function AdminPanel({ user, onLogout }) {
     }
     return item;
   }).filter(item => {
+    // TODO: Unhide curriculum tab when ready
+    if (item.id === 'curriculum') return false;
+
     const role = user?.role;
     if (role === 'SUPER_ADMIN') return true;
     if (role === 'SCHOOL_ADMIN') return ['users'].includes(item.id);
