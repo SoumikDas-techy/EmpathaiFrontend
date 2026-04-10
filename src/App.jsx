@@ -4,7 +4,6 @@ import Hero from './components/pagelayout/Hero'
 import WhyEmpathAI from './components/WhyEmpathAI'
 import HowItWorks from './components/HowItWorks'
 import InclusivityFocus from './components/InclusivityFocus'
-import Auth from './components/Auth'
 import Dashboard from './components/Dashboard'
 import LoginModal from './components/LoginModal'
 import AdminPanel from './components/admin/AdminPanel'
@@ -60,6 +59,12 @@ function App() {
     setShowLoginModal(true)
   }
 
+  // Legacy mock auth route — redirect to real login modal instead
+  if (currentPage === 'auth') {
+    setCurrentPage('home')
+    setShowLoginModal(true)
+  }
+
   const handleLogin = (userData) => {
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
@@ -82,10 +87,6 @@ function App() {
     clearTokens()
     setUser(null)
     setCurrentPage('home')
-  }
-
-  if (currentPage === 'auth') {
-    return <Auth onBackToHome={navigateToHome} onLoginSuccess={navigateToDashboard} />
   }
 
   if (currentPage === 'admin' && user) {

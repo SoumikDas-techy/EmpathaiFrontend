@@ -49,7 +49,7 @@ export async function deleteBadge(id) {
 
 export async function fetchStudentBadges(studentId) {
   const res = await apiRequest(`${BASE}/students/${studentId}/badges`)
-  if (!res.ok) throw new Error('Failed to fetch student badges')
+  if (!res.ok) throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
   return res.json()
 }
 

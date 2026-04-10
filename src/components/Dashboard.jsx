@@ -134,12 +134,8 @@ export default function Dashboard({ user, onLogout }) {
     { id: 'schedule', name: 'My Schedule', icon: CalendarIcon },
     { id: 'questionnaire', name: 'Feelings Explorer', icon: ClipboardDocumentListIcon },
     { id: 'activities', name: 'Activities', icon: PuzzlePieceIcon }
-<<<<<<< HEAD
+  // TODO: Unhide curriculum when ready — delete the .filter() line below
   ].filter(item => item.id !== 'curriculum')
-=======
-    // TODO: Unhide curriculum when ready — delete the .filter() line below
-    ].filter(item => item.id !== 'curriculum')
->>>>>>> b082461b69538aca5221efc4006c1fa13d2d3c01
 
   const performSearch = () => {
     const query = searchQuery.toLowerCase().trim()
@@ -665,6 +661,22 @@ export default function Dashboard({ user, onLogout }) {
 }
 
 function Overview({ user, setActiveTab }) {
+  const [badges, setBadges] = useState([])
+  const [badgesLoading, setBadgesLoading] = useState(true)
+  const [badgesError, setBadgesError] = useState('')
+
+  useEffect(() => {
+    if (!user?.id) {
+      setBadgesError(`No user ID — user object: ${JSON.stringify(user)}`)
+      setBadgesLoading(false)
+      return
+    }
+    fetchStudentBadges(user.id)
+      .then(data => { setBadges(data || []); setBadgesError('') })
+      .catch(err => setBadgesError(`API error (student ID=${user.id}): ${err.message}`))
+      .finally(() => setBadgesLoading(false))
+  }, [user?.id])
+
   const achievements = [
     { title: '7-day study streak', desc: 'Keep it up!', value: '7', icon: '🔥', color: 'bg-orange-100', textColor: 'text-orange-600' },
     { title: 'Math Master', desc: 'Completed 5 chapters', value: '🎯', icon: '🎯', color: 'bg-primary/10', textColor: 'text-primary' },
@@ -711,6 +723,69 @@ function Overview({ user, setActiveTab }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Rewards & Badges ─────────────────────────────────────────────────── */}
+      <div className="mb-10">
+        <h2 className="text-lg font-black text-dark-navy mb-5 flex items-center justify-center gap-2">
+          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
+          🏅 Your Rewards & Badges
+          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
+        </h2>
+
+        {badgesLoading ? (
+          <div className="flex items-center justify-center py-10 gap-3">
+            <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+            <p className="text-sm text-gray-400 font-medium">Loading your badges...</p>
+          </div>
+        ) : badgesError ? (
+          <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 text-center">
+            <p className="text-xs font-bold text-red-600 break-all">⚠️ {badgesError}</p>
+          </div>
+        ) : badges.length === 0 ? (
+          <div className="bg-white border-2 border-dashed border-purple-200 rounded-3xl p-8 text-center">
+            <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🏅</div>
+            <h4 className="font-black text-gray-700 mb-1">No badges earned yet</h4>
+            <p className="text-sm text-gray-400 max-w-xs mx-auto leading-relaxed">
+              Keep logging in daily and completing wellbeing sessions to unlock your first badge!
+            </p>
+            <div className="mt-4 flex justify-center gap-3 text-xs">
+              <span className="bg-blue-50 border border-blue-100 text-blue-600 font-bold px-3 py-1.5 rounded-full">🔑 Login milestones</span>
+              <span className="bg-green-50 border border-green-100 text-green-600 font-bold px-3 py-1.5 rounded-full">💪 Wellbeing sessions</span>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {badges.map((badge) => {
+              const meta = getBadgeMeta(badge.triggerType)
+              return (
+                <div
+                  key={badge.id}
+                  className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
+                >
+                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
+                    {badge.imageBase64
+                      ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
+                      : <span className="text-2xl">{meta.emoji}</span>
+                    }
+                  </div>
+                  <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
+                  {badge.description && (
+                    <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>
+                  )}
+                  <span className="inline-flex items-center gap-1 bg-white/80 border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-black text-gray-600">
+                    <ShieldCheckIcon className="w-3 h-3 text-green-500" />
+                    {meta.label}
+                  </span>
+                  {badge.earnedAt && (
+                    <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>
+                  )}
+                  <span className="absolute top-2 right-2 text-xs">✨</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Ongoing Learning Modules */}
