@@ -47,6 +47,16 @@ const calculateAgeFromDOB = (dob) => {
 }
 
 
+const formatTimeSpent = (seconds) => {
+    if (!seconds && seconds !== 0) return '—'
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    if (h > 0) return `${h}h ${m}m`
+    if (m > 0) return `${m}m ${s}s`
+    return `${s}s`
+}
+
 export default function UserManagement({ user }) {
     const [activeTab, setActiveTab] = useState('student')
     const [searchTerm, setSearchTerm] = useState('')
@@ -82,8 +92,10 @@ export default function UserManagement({ user }) {
         emergencyContact: '',
         contactName: '',
         rollNo: '',
-        gender: '',   
-          
+        gender: '',
+        loginCount: 0,
+        intervention: '',
+        timeSpent: 0,
     })
 
     const loadUsers = useCallback(async () => {
@@ -193,8 +205,10 @@ export default function UserManagement({ user }) {
                 emergencyContact: fullUser.emergencyContact || '',
                 contactName: fullUser.contactName || '',
                 rollNo: fullUser.rollNo || '',
-                gender: fullUser.gender || '',   
-                      
+                gender: fullUser.gender || '',
+                loginCount: fullUser.loginCount ?? 0,
+                intervention: fullUser.intervention || '',
+                timeSpent: fullUser.timeSpent ?? 0,
             })
         } else {
             setEditingUser(null)
@@ -213,6 +227,9 @@ export default function UserManagement({ user }) {
                 emergencyContact: '',
                 contactName: '',
                 rollNo: '',
+                loginCount: 0,
+                intervention: '',
+                timeSpent: 0,
             })
             if (activeTab !== 'schools') generatePassword()
         }
@@ -295,7 +312,10 @@ export default function UserManagement({ user }) {
     emergencyContact: formData.emergencyContact || undefined,
     rollNo: formData.rollNo || undefined,
     section: formData.section || undefined,
-    gender: formData.gender || undefined,   
+    gender: formData.gender || undefined,
+    loginCount: formData.loginCount !== undefined ? Number(formData.loginCount) : undefined,
+    intervention: formData.intervention || undefined,
+    timeSpent: formData.timeSpent !== undefined ? Number(formData.timeSpent) : undefined,
 }
                 if (editingUser) {
                     await updateUser(editingUser.id, payload)
@@ -306,17 +326,15 @@ export default function UserManagement({ user }) {
             setIsModalOpen(false)
             setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`)
             const savedUser = localStorage.getItem('user')
-const currentUser = savedUser ? JSON.parse(savedUser) : null
-if (editingUser && currentUser && currentUser.id === editingUser.id && formData.dateOfBirth) {
-   localStorage.setItem('user', JSON.stringify({
-    ...userFromApi,
-    age: userFromApi.dateOfBirth 
-        ? calculateAgeFromDOB(userFromApi.dateOfBirth) 
-        : (userFromApi.age || null),
-    dateOfBirth: userFromApi.dateOfBirth || null,
-    gender: userFromApi.gender || null,   
-}))
-}
+            const currentUser = savedUser ? JSON.parse(savedUser) : null
+            if (editingUser && currentUser && currentUser.id === editingUser.id && formData.dateOfBirth) {
+                localStorage.setItem('user', JSON.stringify({
+                    ...currentUser,
+                    age: formData.dateOfBirth ? calculateAgeFromDOB(formData.dateOfBirth) : (currentUser.age || null),
+                    dateOfBirth: formData.dateOfBirth || null,
+                    gender: formData.gender || null,
+                }))
+            }
             setTimeout(() => setSuccessMessage(null), 3000)
             await loadUsers()
         } catch (err) {
@@ -619,6 +637,9 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Phone</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Login Count</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intervention</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Spent</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -665,6 +686,24 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                                         : <span className="text-gray-300">—</span>
                                                     }
                                                 </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    {full.loginCount != null
+                                                        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{full.loginCount}</span>
+                                                        : <span className="text-gray-300">—</span>
+                                                    }
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    {full.intervention
+                                                        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{full.intervention}</span>
+                                                        : <span className="text-gray-300">—</span>
+                                                    }
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    {full.timeSpent != null
+                                                        ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{formatTimeSpent(full.timeSpent)}</span>
+                                                        : <span className="text-gray-300">—</span>
+                                                    }
+                                                </td>
                                                 <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
                                                     <div className="flex items-center justify-center gap-3">
                                                         <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
@@ -678,7 +717,7 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                             </tr>
                                             {expandedRow === u.id && (
                                                 <tr className="bg-gray-50">
-                                                    <td colSpan={6} className="px-8 py-4">
+                                                    <td colSpan={9} className="px-8 py-4">
                                                         {(() => {
                                                             const full = expandedUserData[u.id] || u
                                                             return (
@@ -687,6 +726,18 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                                                     <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                         <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
                                                                         <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
+                                                                    </div>
+                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
+                                                                        <p className="text-sm font-semibold text-gray-800">{full.loginCount ?? '—'}</p>
+                                                                    </div>
+                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention</p>
+                                                                        <p className="text-sm font-semibold text-gray-800">{full.intervention || '—'}</p>
+                                                                    </div>
+                                                                    <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
+                                                                        <p className="text-sm font-semibold text-gray-800">{full.timeSpent != null ? formatTimeSpent(full.timeSpent) : '—'}</p>
                                                                     </div>
                                                                 </div>
                                                             )
@@ -703,7 +754,7 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                 return formatClassName(rawClass) === selectedClass;
                             }).length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                        <td colSpan={9} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
                                     </tr>
                                 )}
                         </tbody>
@@ -874,7 +925,39 @@ if (editingUser && currentUser && currentUser.id === editingUser.id && formData.
                                                     </div>
                                                 )}
                                             </div>
-                                           
+                                            {/* ── NEW FIELDS ── */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium">Login Count</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.loginCount}
+                                                        onChange={(e) => setFormData({ ...formData, loginCount: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium">Time Spent (seconds)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.timeSpent}
+                                                        onChange={(e) => setFormData({ ...formData, timeSpent: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium">Intervention</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.intervention}
+                                                    onChange={(e) => setFormData({ ...formData, intervention: e.target.value })}
+                                                    placeholder="e.g. Counselling, CBT, Group session"
+                                                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                />
+                                            </div>
                                         </>
                                     ) : (
                                         <>
