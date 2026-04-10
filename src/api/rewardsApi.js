@@ -1,6 +1,7 @@
-import { apiRequest } from './apiClient'
+import { apiRequest, getAccessToken } from './apiClient'
 
 const BASE = '/api/rewards'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 
@@ -45,12 +46,41 @@ export async function deleteBadge(id) {
 
 // ── Student Badges ─────────────────────────────────────────────────────────────
 // GET /api/rewards/students/{studentId}/badges
-// Returns all badges earned by the student (with earnedAt timestamp)
+// This endpoint is permitAll on the backend — no auth required.
+// We intentionally do NOT send the Authorization header here because an expired
+// or invalid JWT causes Spring Security to reject the request with 403 even on
+// permitAll routes (the JWT filter throws, leaving the request unauthenticated,
+// which then hits the anyRequest().authenticated() fallback).
 
 export async function fetchStudentBadges(studentId) {
-  const res = await apiRequest(`${BASE}/students/${studentId}/badges`)
-  if (!res.ok) throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
-  return res.json()
+  const url = `${BASE_URL}${BASE}/students/${studentId}/badges`
+
+  // First try: plain fetch with no token (the endpoint is public)
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  })
+
+  // If it works, great
+  if (res.ok) return res.json()
+
+  // If plain fetch fails (e.g. server requires auth after all), retry with token
+  if (res.status === 401 || res.status === 403) {
+    const token = getAccessToken()
+    if (token) {
+      const retryRes = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      })
+      if (retryRes.ok) return retryRes.json()
+      throw new Error(`Failed to fetch student badges (HTTP ${retryRes.status})`)
+    }
+  }
+
+  throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
 }
 
 // ── Achievements ──────────────────────────────────────────────────────────────

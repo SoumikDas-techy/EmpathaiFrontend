@@ -1,9 +1,10 @@
 /**
  * Central API client.
  * Automatically injects the JWT Bearer token and handles 401 errors.
+ * BASE_URL is empty so all /api calls go through Vite's proxy (port 3000 → 8080).
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
 export function getAccessToken() {
@@ -23,7 +24,7 @@ export function clearTokens() {
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
 let isRefreshing = false;
-let refreshSubscribers = []; // callbacks to retry after token refresh
+let refreshSubscribers = [];
 
 function subscribeToRefresh(cb) {
   refreshSubscribers.push(cb);
@@ -51,10 +52,6 @@ async function attemptRefresh() {
   return data.accessToken;
 }
 
-/**
- * @param {string} path - API path (e.g. '/api/users')
- * @param {RequestInit} options - fetch options
- */
 export async function apiRequest(path, options = {}) {
   const token = getAccessToken();
   const isFormData = options.body instanceof FormData;
@@ -66,7 +63,6 @@ export async function apiRequest(path, options = {}) {
 
   const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
-  // Auto-refresh on 401
   if (response.status === 401 && path !== '/api/auth/login') {
     if (!isRefreshing) {
       isRefreshing = true;
@@ -82,7 +78,6 @@ export async function apiRequest(path, options = {}) {
       }
     }
 
-    // Wait for the refreshed token
     return new Promise((resolve, reject) => {
       subscribeToRefresh(async (newToken) => {
         try {
@@ -99,9 +94,6 @@ export async function apiRequest(path, options = {}) {
   return response;
 }
 
-/**
- * Convenience: parse JSON or throw formatted error.
- */
 export async function apiGet(path) {
   const res = await apiRequest(path);
   if (!res.ok) await throwApiError(res);

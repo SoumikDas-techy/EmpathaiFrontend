@@ -322,11 +322,11 @@ export default function Dashboard({ user, onLogout }) {
             {/* User Avatar */}
             <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-black text-black">{user.firstName}</p>
+                <p className="text-xs font-black text-black">{(user.name || user.firstName)?.split(' ')[0]}</p>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Student</p>
               </div>
               <div className="w-10 h-10 bg-purple-200 rounded-2xl flex items-center justify-center shadow-md shadow-purple-200/20">
-                <span className="text-black font-black text-base">{user.firstName?.charAt(0) || 'U'}</span>
+                <span className="text-black font-black text-base">{(user.name || user.firstName)?.charAt(0) || 'U'}</span>
               </div>
             </div>
           </div>
@@ -696,7 +696,7 @@ function Overview({ user, setActiveTab }) {
       {/* Welcome Message */}
       <div className="mb-10 text-center">
         <h1 className="text-3xl font-black text-dark-navy mb-1.5 tracking-tight">
-          Welcome back, {user.firstName}! 🌟
+          Welcome back, {(user.name || user.firstName)?.split(' ')[0]}! 🌟
         </h1>
         <p className="text-base text-gray-500 font-medium tracking-tight">Ready to continue your personalized emotional and academic journey?</p>
       </div>
