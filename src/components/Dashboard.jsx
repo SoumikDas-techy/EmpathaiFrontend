@@ -13,16 +13,13 @@ import {
   CalculatorIcon,
   BeakerIcon,
   GlobeAltIcon,
+  LanguageIcon,
   PaperAirplaneIcon,
   ArrowRightOnRectangleIcon,
   AcademicCapIcon,
   CheckCircleIcon,
-  XMarkIcon,
-  StarIcon,
-  ShieldCheckIcon,
-  TrophyIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
-import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 
 import Assessment from "./studentdashboard/assessment/Assessment";
 import Chatbot from "./studentdashboard/chatbuddy/Chatbot";
@@ -34,32 +31,6 @@ import Activities from "./studentdashboard/activity/Activities";
 import Questionnaire from './studentdashboard/assessment/Questionnaire';
 import Schedule from './studentdashboard/schedule/Schedule';
 import { getWeekTasks } from '../api/scheduleApi.js';
-import { fetchStudentBadges } from '../api/rewardsApi.js';
-
-// ── Badge helpers ─────────────────────────────────────────────────────────────
-
-function toDataUrl(imageBase64, imageType) {
-  if (!imageBase64) return null
-  return `data:${imageType || 'image/png'};base64,${imageBase64}`
-}
-
-// Emoji & colour config per trigger type
-const BADGE_META = {
-  login:        { emoji: '🔑', color: 'from-blue-400 to-indigo-500',   bg: 'bg-blue-50',   border: 'border-blue-200',   label: 'Login Milestone'        },
-  intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50',  border: 'border-green-200',  label: 'Wellbeing Milestone'    },
-  video:        { emoji: '🎬', color: 'from-pink-400 to-rose-500',     bg: 'bg-pink-50',   border: 'border-pink-200',   label: 'Video Completion'       },
-  module:       { emoji: '📚', color: 'from-orange-400 to-amber-500',  bg: 'bg-orange-50', border: 'border-orange-200', label: 'Module Completion'      },
-  default:      { emoji: '🏅', color: 'from-purple-400 to-violet-500', bg: 'bg-purple-50', border: 'border-purple-200', label: 'Achievement'            },
-}
-
-function getBadgeMeta(triggerType) {
-  return BADGE_META[triggerType] || BADGE_META.default
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview')
@@ -101,7 +72,12 @@ export default function Dashboard({ user, onLogout }) {
       setTasksError('')
       try {
         const weekData = await getWeekTasks(user.id)
-        setTasks({ ...emptyWeek, ...weekData })
+        // weekData is { Monday: [...], Tuesday: [...], ... }
+        // merge with emptyWeek so all 7 days always exist
+        setTasks({
+          ...emptyWeek,
+          ...weekData
+        })
       } catch (err) {
         console.error('Failed to load schedule:', err.message)
         setTasksError('Could not load your schedule. Please refresh.')
@@ -112,6 +88,7 @@ export default function Dashboard({ user, onLogout }) {
 
     loadTasks()
   }, [user?.id])
+  // ──────────────────────────────────────────────────────────────────────────
 
   const toggleTaskComplete = (day, taskId) => {
     setTasks({
@@ -126,7 +103,6 @@ export default function Dashboard({ user, onLogout }) {
     setChatMessage(message)
     setActiveTab('chatbuddy')
   }
-
   const sidebarItems = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'chatbuddy', name: 'ChatBuddy', icon: ChatBubbleLeftRightIcon },
@@ -134,50 +110,63 @@ export default function Dashboard({ user, onLogout }) {
     { id: 'schedule', name: 'My Schedule', icon: CalendarIcon },
     { id: 'questionnaire', name: 'Feelings Explorer', icon: ClipboardDocumentListIcon },
     { id: 'activities', name: 'Activities', icon: PuzzlePieceIcon }
-<<<<<<< HEAD
-  ].filter(item => item.id !== 'curriculum')
-=======
     // TODO: Unhide curriculum when ready — delete the .filter() line below
     ].filter(item => item.id !== 'curriculum')
->>>>>>> b082461b69538aca5221efc4006c1fa13d2d3c01
 
   const performSearch = () => {
     const query = searchQuery.toLowerCase().trim()
     if (!query) return
 
-    const tabMap = {
+    const searchMap = {
       'overview': 'overview',
       'home': 'overview',
       'chat': 'chatbuddy',
-      'chatbuddy': 'chatbuddy',
       'buddy': 'chatbuddy',
+      'bot': 'chatbuddy',
+      'talk': 'chatbuddy',
       'curriculum': 'curriculum',
+      'study': 'curriculum',
       'learn': 'curriculum',
-      'lessons': 'curriculum',
+      'lesson': 'curriculum',
+      'math': 'curriculum',
+      'science': 'curriculum',
+      'english': 'curriculum',
+      'history': 'curriculum',
       'schedule': 'schedule',
-      'tasks': 'schedule',
-      'planner': 'schedule',
-      'feelings': 'questionnaire',
+      'calendar': 'schedule',
+      'today': 'schedule',
+      'task': 'schedule',
+      'feel': 'questionnaire',
       'explorer': 'questionnaire',
-      'assessment': 'questionnaire',
-      'questionnaire': 'questionnaire',
+      'mood': 'questionnaire',
+      'check': 'questionnaire',
+      'activity': 'activities',
       'activities': 'activities',
-      'tools': 'activities',
-      'wellness': 'activities',
+      'game': 'activities',
+      'play': 'activities'
+    }
+
+    const matchedKey = Object.keys(searchMap).find(key => query.includes(key))
+    if (matchedKey) {
+      setActiveTab(searchMap[matchedKey])
+      setSearchQuery('')
+      return
     }
 
     const match = sidebarItems.find(item =>
-      item.name.toLowerCase().includes(query)
+      item.name.toLowerCase().includes(query) ||
+      item.id.toLowerCase().includes(query)
     )
-    if (match) { setActiveTab(match.id); return }
-
-    for (const [keyword, tabId] of Object.entries(tabMap)) {
-      if (query.includes(keyword)) { setActiveTab(tabId); return }
+    if (match) {
+      setActiveTab(match.id)
+      setSearchQuery('')
     }
   }
 
   const handleSearchKeyPress = (e) => {
-    if (e.key === 'Enter') performSearch()
+    if (e.key === 'Enter') {
+      performSearch()
+    }
   }
 
   return (
@@ -274,7 +263,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Gift Icon — opens Badges modal */}
+            {/* Gift Icon */}
             <GiftIcon
               onClick={() => setActiveHeaderModal('rewards')}
               className="w-6 h-6 text-gray-400 hover:text-primary cursor-pointer transition-colors"
@@ -409,7 +398,7 @@ export default function Dashboard({ user, onLogout }) {
       {/* Header Modals */}
       {activeHeaderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-8 w-full max-w-md relative">
             <button
               onClick={() => setActiveHeaderModal(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
@@ -417,194 +406,203 @@ export default function Dashboard({ user, onLogout }) {
               ×
             </button>
 
-            {activeHeaderModal === 'rewards' && <BadgesModal user={user} />}
+            {activeHeaderModal === 'calendar' && <CalendarModal />}
+            {activeHeaderModal === 'rewards' && <RewardsModal />}
             {activeHeaderModal === 'notifications' && <NotificationsModal />}
+          </div>
+        </div>
+      )}
+
+      {/* Daily Check-in Modal */}
+      {showDailyCheckin && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] border-2 border-purple-200 shadow-2xl p-10 w-full max-w-lg relative animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4 animate-float">
+                <span className="text-4xl text-black">👋</span>
+              </div>
+              <h2 className="text-3xl font-black text-dark-navy mb-2 italic">Morning, {user.firstName}!</h2>
+              <p className="text-gray-500 font-medium">Let's start your day with a quick check-in.</p>
+            </div>
+
+            <div className="space-y-8">
+              {/* Sleep Question */}
+              <div>
+                <label className="block text-lg font-black text-dark-navy mb-4 text-center">
+                  How many hours did you sleep? 😴
+                </label>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {['4-5', '6-7', '8-9', '10+'].map((hours) => (
+                    <button
+                      key={hours}
+                      onClick={() => setSelectedSleep(hours)}
+                      className={`px-4 py-3 rounded-2xl border-2 transition-all font-bold text-sm ${selectedSleep === hours
+                        ? 'bg-green-50 border-green-500 text-green-700 shadow-md shadow-green-100 ring-2 ring-green-100'
+                        : 'border-purple-100 text-dark-navy hover:border-green-500 hover:bg-green-50'
+                        }`}
+                    >
+                      {hours} Hours
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mood Question */}
+              <div>
+                <label className="block text-lg font-black text-dark-navy mb-4 text-center">
+                  How are you feeling today? ✨
+                </label>
+                <div className="flex justify-center gap-6">
+                  {[
+                    { emoji: '😊', label: 'Happy' },
+                    { emoji: '😐', label: 'Neutral' },
+                    { emoji: '😔', label: 'Sad' },
+                    { emoji: '😫', label: 'Tired' }
+                  ].map((mood) => (
+                    <button
+                      key={mood.label}
+                      onClick={() => {
+                        setSelectedMood(mood.label)
+                        if (mood.label === 'Tired') {
+                          setShowBreathing(true)
+                        }
+                      }}
+                      className="group flex flex-col items-center gap-2"
+                    >
+                      <span className={`text-5xl transition-all duration-300 group-hover:scale-125 ${selectedMood === mood.label ? 'scale-125 drop-shadow-md' : 'opacity-80 group-hover:opacity-100'
+                        }`}>
+                        {mood.emoji}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${selectedMood === mood.label ? 'text-green-600' : 'text-gray-400'
+                        }`}>{mood.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowDailyCheckin(false)}
+              className="w-full mt-10 bg-black text-white font-black py-4 rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-black/10 text-lg"
+            >
+              Start My Learning Journey!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Box Breathing Intervention */}
+      {showBreathing && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] border-4 border-purple-200 p-12 w-full max-w-xl text-center relative overflow-hidden shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-b from-purple-50/50 to-transparent"></div>
+
+            <div className="relative z-10">
+              <h2 className="text-3xl font-black text-dark-navy mb-2 tracking-tight">Box Breathing 🧘‍♂️</h2>
+              <p className="text-gray-500 font-medium mb-10">Let's reset your energy with 30 seconds of breathing.</p>
+
+              {/* Breathing Animation */}
+              <div className="flex justify-center mb-10">
+                <div className="w-48 h-48 border-4 border-green-200 rounded-3xl relative flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-green-500 rounded-3xl animate-breathing-box"></div>
+                  <div className="text-xl font-black text-green-600 animate-pulse">
+                    Breathe...
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-4xl font-black text-dark-navy">30s</div>
+                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Intervention in progress</p>
+              </div>
+
+              <button
+                onClick={() => setShowBreathing(false)}
+                className="mt-10 text-gray-400 font-bold hover:text-dark-navy transition-colors underline"
+              >
+                Skip intervention
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   )
 
-  // ── Badges Modal — fetches real data from backend ─────────────────────────
-  function BadgesModal({ user }) {
-    const [badges, setBadges] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState('')
-    const [activeFilter, setActiveFilter] = useState('all')
-
-    useEffect(() => {
-      if (!user?.id) return
-      const load = async () => {
-        try {
-          setLoading(true)
-          const data = await fetchStudentBadges(user.id)
-          setBadges(data)
-        } catch (e) {
-          setError('Could not load your badges. Please try again.')
-        } finally {
-          setLoading(false)
-        }
-      }
-      load()
-    }, [user?.id])
-
-    const filters = [
-      { id: 'all', label: 'All' },
-      { id: 'login', label: '🔑 Login' },
-      { id: 'intervention', label: '💪 Wellbeing' },
+  // Calendar Modal Component
+  function CalendarModal() {
+    const today = new Date()
+    const events = [
+      { date: 'Today', time: '2:00 PM', title: 'Math Study Session', type: 'study' },
+      { date: 'Tomorrow', time: '10:00 AM', title: 'Emotional Check-in', type: 'wellness' },
+      { date: 'Dec 25', time: '3:00 PM', title: 'Science Project Due', type: 'assignment' }
     ]
-
-    const filtered = activeFilter === 'all'
-      ? badges
-      : badges.filter(b => b.triggerType === activeFilter)
-
-    // Login milestone map for progress display
-    const LOGIN_MILESTONES = [1, 2, 5, 10, 25, 50, 100]
-    const INTERVENTION_MILESTONES = [1, 3, 5, 10]
-
-    const earnedLoginValues = badges
-      .filter(b => b.triggerType === 'login')
-      .map(b => parseInt(b.triggerValue))
-
-    const maxLoginEarned = earnedLoginValues.length > 0 ? Math.max(...earnedLoginValues) : 0
 
     return (
       <div>
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-orange-200">
-            <span className="text-3xl">🏆</span>
-          </div>
-          <h3 className="text-2xl font-black text-gray-900">Your Badges</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {badges.length === 0 ? 'Earn badges by logging in and completing sessions' : `You've earned ${badges.length} badge${badges.length !== 1 ? 's' : ''} so far!`}
-          </p>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">📅 Your Schedule</h3>
+        <div className="space-y-4">
+          {events.map((event, i) => (
+            <div key={i} className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-semibold text-gray-900">{event.title}</h4>
+                <span className={`px-2 py-1 rounded-full text-xs ${event.type === 'study' ? 'bg-blue-100 text-blue-700' :
+                  event.type === 'wellness' ? 'bg-green-100 text-green-700' :
+                    'bg-orange-100 text-orange-700'
+                  }`}>
+                  {event.type}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600">{event.date} at {event.time}</p>
+            </div>
+          ))}
         </div>
+        <button className="w-full mt-6 bg-black text-white py-2 rounded-lg hover:bg-gray-800">
+          View Full Calendar
+        </button>
+      </div>
+    )
+  }
 
-        {/* Login progress bar */}
-        {badges.some(b => b.triggerType === 'login') && (
-          <div className="mb-6 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-black text-blue-700 uppercase tracking-wide">🔑 Login Journey</span>
-              <span className="text-xs font-bold text-blue-500">{maxLoginEarned} logins</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {LOGIN_MILESTONES.map(m => {
-                const earned = earnedLoginValues.includes(m)
-                return (
-                  <div key={m} className="flex-1 flex flex-col items-center gap-1">
-                    <div className={`w-full h-2 rounded-full transition-all ${earned ? 'bg-blue-500' : 'bg-blue-100'}`} />
-                    <span className={`text-[9px] font-bold ${earned ? 'text-blue-600' : 'text-blue-200'}`}>{m}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+  // Rewards Modal Component
+  function RewardsModal() {
+    const rewards = [
+      { name: '30 min extra screen time', cost: 50, available: true, type: 'privilege' },
+      { name: 'Choose dinner menu', cost: 100, available: true, type: 'privilege' },
+      { name: 'Movie night pick', cost: 150, available: false, type: 'privilege' },
+      { name: 'Weekend outing', cost: 300, available: false, type: 'privilege' }
+    ]
 
-        {/* Filter tabs */}
-        {badges.length > 0 && (
-          <div className="flex gap-2 mb-5">
-            {filters.map(f => (
-              <button
-                key={f.id}
-                onClick={() => setActiveFilter(f.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  activeFilter === f.id
-                    ? 'bg-purple-600 text-white shadow'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {f.label}
-              </button>
+    const badges = [
+      { name: 'Math Genius', icon: '🧮', earned: true, description: 'Complete 10 math chapters' },
+      { name: 'Mindful Student', icon: '🧘', earned: true, description: '30 meditation sessions' },
+      { name: 'Study Streak', icon: '🔥', earned: false, description: '14-day study streak' },
+      { name: 'Emotion Master', icon: '💝', earned: false, description: 'Complete all assessments' }
+    ]
+
+    return (
+      <div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🎁 Rewards Store</h3>
+        <div className="mb-6 text-center">
+          <p className="text-gray-600">Your XP Balance:</p>
+          <p className="text-3xl font-bold text-yellow-600">385 XP</p>
+        </div>
+        <div className="mb-6">
+          <h4 className="font-semibold text-gray-900 mb-3">🏆 Your Badges</h4>
+          <div className="grid grid-cols-2 gap-3">
+            {badges.map((badge, i) => (
+              <div key={i} className={`p-3 rounded-lg border-2 text-center ${badge.earned
+                ? 'border-yellow-300 bg-yellow-50'
+                : 'border-gray-200 bg-gray-50 opacity-60'
+                }`}>
+                <div className="text-2xl mb-1">{badge.icon}</div>
+                <h5 className="font-semibold text-sm text-gray-900">{badge.name}</h5>
+                <p className="text-xs text-gray-600">{badge.description}</p>
+                {badge.earned && <div className="text-xs text-yellow-600 font-medium mt-1">✓ Earned</div>}
+              </div>
             ))}
           </div>
-        )}
-
-        {/* Content */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-            <p className="text-sm text-gray-400">Loading your badges...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8 bg-red-50 rounded-2xl border border-red-100">
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
-        ) : badges.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl opacity-40">🏅</span>
-            </div>
-            <h4 className="font-black text-gray-800 mb-2">No badges yet</h4>
-            <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed">
-              Keep logging in and completing your sessions — your first badge is just around the corner!
-            </p>
-            <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                <p className="text-xs font-black text-blue-700 mb-1">🔑 Login Badges</p>
-                <p className="text-[11px] text-blue-500">Log in daily to earn milestones at 1, 2, 5, 10, 25, 50 and 100 logins</p>
-              </div>
-              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                <p className="text-xs font-black text-green-700 mb-1">💪 Wellbeing Badges</p>
-                <p className="text-[11px] text-green-500">Complete intervention sessions to earn badges at 1, 3, 5 and 10 sessions</p>
-              </div>
-            </div>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">
-            <p className="text-sm">No badges in this category yet.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filtered.map((badge) => {
-              const meta = getBadgeMeta(badge.triggerType)
-              return (
-                <div
-                  key={badge.id}
-                  className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-md transition-shadow`}
-                >
-                  {/* Badge image or gradient icon */}
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
-                    {badge.imageBase64
-                      ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
-                      : <span className="text-2xl">{meta.emoji}</span>
-                    }
-                  </div>
-
-                  {/* Title */}
-                  <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
-
-                  {/* Description */}
-                  {badge.description && (
-                    <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>
-                  )}
-
-                  {/* Earned label */}
-                  <span className="inline-flex items-center gap-1 bg-white/80 border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-black text-gray-600">
-                    <ShieldCheckIcon className="w-3 h-3 text-green-500" />
-                    {meta.label}
-                  </span>
-
-                  {/* Earned date */}
-                  {badge.earnedAt && (
-                    <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>
-                  )}
-
-                  {/* Sparkle corner */}
-                  <span className="absolute top-2 right-2 text-xs">✨</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Footer hint */}
-        {badges.length > 0 && (
-          <p className="text-center text-xs text-gray-400 mt-5 pt-4 border-t border-gray-100">
-            Badges are awarded automatically when you hit milestones 🎉
-          </p>
-        )}
+        </div>
       </div>
     )
   }
