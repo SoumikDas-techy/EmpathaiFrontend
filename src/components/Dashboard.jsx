@@ -134,7 +134,12 @@ export default function Dashboard({ user, onLogout }) {
     { id: 'schedule', name: 'My Schedule', icon: CalendarIcon },
     { id: 'questionnaire', name: 'Feelings Explorer', icon: ClipboardDocumentListIcon },
     { id: 'activities', name: 'Activities', icon: PuzzlePieceIcon }
+<<<<<<< HEAD
   ].filter(item => item.id !== 'curriculum')
+=======
+    // TODO: Unhide curriculum when ready — delete the .filter() line below
+    ].filter(item => item.id !== 'curriculum')
+>>>>>>> b082461b69538aca5221efc4006c1fa13d2d3c01
 
   const performSearch = () => {
     const query = searchQuery.toLowerCase().trim()
