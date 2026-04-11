@@ -500,9 +500,9 @@ const handleOptionClick = (question, option) => {
         const n = Number(raw)
         return isNaN(n) ? null : n
     })(),
+    gender: user?.gender || user?.sex || null, 
     className: user?.className || groupName,
     
-    gender: user?.gender || null,
     groupId: currentGroupId,
     groupName: groupName,
     questionId: question.id,
