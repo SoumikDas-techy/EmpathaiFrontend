@@ -2,7 +2,7 @@ import { apiRequest } from './apiClient'
 
 const BASE = '/api/rewards'
 
-// ── Badges ────────────────────────────────────────────────────────────────────
+// ── Badges (admin CRUD) ───────────────────────────────────────────────────────
 
 export async function fetchBadges() {
   const res = await apiRequest(`${BASE}/badges`)
@@ -10,13 +10,11 @@ export async function fetchBadges() {
   return res.json()
 }
 
-export async function createBadge({ title, description, triggerType, triggerValue, triggerTitle, imageFile }) {
+export async function createBadge({ title, triggerType, triggerTitle, imageFile }) {
   const form = new FormData()
   form.append('title', title)
-  if (description) form.append('description', description)
   form.append('triggerType', triggerType)
-  form.append('triggerValue', triggerValue)
-  if (triggerTitle) form.append('triggerTitle', triggerTitle)
+  form.append('triggerTitle', triggerTitle)
   if (imageFile) form.append('image', imageFile)
 
   const res = await apiRequest(`${BASE}/badges`, { method: 'POST', body: form })
@@ -24,13 +22,11 @@ export async function createBadge({ title, description, triggerType, triggerValu
   return res.json()
 }
 
-export async function updateBadge(id, { title, description, triggerType, triggerValue, triggerTitle, imageFile }) {
+export async function updateBadge(id, { title, triggerType, triggerTitle, imageFile }) {
   const form = new FormData()
   form.append('title', title)
-  if (description) form.append('description', description)
   form.append('triggerType', triggerType)
-  form.append('triggerValue', triggerValue)
-  if (triggerTitle) form.append('triggerTitle', triggerTitle)
+  form.append('triggerTitle', triggerTitle)
   if (imageFile) form.append('image', imageFile)
 
   const res = await apiRequest(`${BASE}/badges/${id}`, { method: 'PUT', body: form })
@@ -43,10 +39,12 @@ export async function deleteBadge(id) {
   if (!res.ok) throw new Error('Failed to delete badge')
 }
 
-// ── Student Badges ─────────────────────────────────────────────────────────────
-// FIX: Was using raw fetch() with hardcoded http://localhost:8080 which bypasses
-// the Vite proxy entirely. Now uses apiRequest() so it goes through the proxy
-// (port 3000 → 8080) with the JWT token and refresh logic applied automatically.
+// ── Student Badges ────────────────────────────────────────────────────────────
+// Uses apiRequest() (not raw fetch) so the Vite proxy routes correctly
+// to the backend and the JWT Bearer token is automatically injected.
+// The old code used raw fetch('http://localhost:8080/...') which:
+//   1. Bypassed the Vite proxy → caused CORS errors in production
+//   2. Did not attach the Authorization header → backend returned 403
 
 export async function fetchStudentBadges(studentId) {
   const res = await apiRequest(`${BASE}/students/${studentId}/badges`)
@@ -54,7 +52,7 @@ export async function fetchStudentBadges(studentId) {
   return res.json()
 }
 
-// ── Achievements ──────────────────────────────────────────────────────────────
+// ── Achievements (admin CRUD) ─────────────────────────────────────────────────
 
 export async function fetchAchievements() {
   const res = await apiRequest(`${BASE}/achievements`)
