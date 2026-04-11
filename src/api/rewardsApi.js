@@ -1,7 +1,6 @@
-import { apiRequest, getAccessToken } from './apiClient'
+import { apiRequest } from './apiClient'
 
 const BASE = '/api/rewards'
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 
@@ -45,27 +44,14 @@ export async function deleteBadge(id) {
 }
 
 // ── Student Badges ─────────────────────────────────────────────────────────────
-// GET /api/rewards/students/{studentId}/badges
-//
-// BUG FIX: The previous implementation first tried the request WITHOUT a token,
-// which caused the backend to immediately reject it (the endpoint requires
-// authentication). The backend returned a 403/500 before the retry-with-token
-// logic could kick in. Now we always send the JWT on the first attempt.
+// FIX: Was using raw fetch() with hardcoded http://localhost:8080 which bypasses
+// the Vite proxy entirely. Now uses apiRequest() so it goes through the proxy
+// (port 3000 → 8080) with the JWT token and refresh logic applied automatically.
 
 export async function fetchStudentBadges(studentId) {
-  const url = `${BASE_URL}${BASE}/students/${studentId}/badges`
-  const token = getAccessToken()
-
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const res = await fetch(url, { method: 'GET', headers })
-
-  if (res.ok) return res.json()
-
-  throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
+  const res = await apiRequest(`${BASE}/students/${studentId}/badges`)
+  if (!res.ok) throw new Error(`Failed to fetch student badges (HTTP ${res.status})`)
+  return res.json()
 }
 
 // ── Achievements ──────────────────────────────────────────────────────────────
