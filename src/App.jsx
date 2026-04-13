@@ -12,7 +12,7 @@ import { clearTokens } from './api/apiClient.js'
 import { updateTimeSpent } from './api/usermanagementapi.js'
 
 // Backend role enums that should route to the admin panel
-const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN']
+const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN', 'TEACHER']
 
 function isAdmin(user) {
   if (!user) return false
