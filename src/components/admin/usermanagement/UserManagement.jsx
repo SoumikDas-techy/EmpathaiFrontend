@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react'
 
 import {
@@ -14,8 +15,6 @@ import {
 
 import TeacherTab from './Teachertab.jsx'
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 const TAB_ROLE_MAP = {
     student: 'STUDENT',
     school_admin: 'SCHOOL_ADMIN',
@@ -23,21 +22,25 @@ const TAB_ROLE_MAP = {
     content_admin: 'CONTENT_ADMIN',
 }
 
-const formatClassName = (name) => {
-    if (!name) return 'No Class';
-    const match = name.match(/\d+/);
-    if (match) return `Class ${ordinal(parseInt(match[0]))} Standard`;
-    return name.startsWith('Class') ? name : `Class ${name}`;
-};
-
-const ordinal = n => {
-    const s = ['th', 'st', 'nd', 'rd'], v = n % 100
+const ordinal = (n) => {
+    const s = ['th', 'st', 'nd', 'rd']
+    const v = n % 100
     return n + (s[(v - 20) % 10] || s[v] || s[0])
 }
 
+const formatClassName = (name) => {
+    if (!name) return 'No Class'
+    const match = name.match(/\d+/)
+    if (match) {
+        const num = parseInt(match[0])
+        return 'Class ' + ordinal(num) + ' Standard'
+    }
+    return name.startsWith('Class') ? name : 'Class ' + name
+}
+
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
-    label: `Class ${ordinal(n)}`,
-    value: `${ordinal(n)} Standard`,
+    label: 'Class ' + ordinal(n),
+    value: ordinal(n) + ' Standard',
 }))
 
 const calculateAgeFromDOB = (dob) => {
@@ -57,9 +60,9 @@ const formatTimeSpent = (seconds) => {
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
     const s = seconds % 60
-    if (h > 0) return `${h}h ${m}m`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
+    if (h > 0) return h + 'h ' + m + 'm'
+    if (m > 0) return m + 'm ' + s + 's'
+    return s + 's'
 }
 
 export default function UserManagement({ user }) {
@@ -104,7 +107,6 @@ export default function UserManagement({ user }) {
         timeSpent: 0,
     })
 
-    // ── Fetch users from backend ──────────────────────────────────────────────
     const loadUsers = useCallback(async () => {
         if (activeTab === 'teacher') return
 
@@ -123,7 +125,6 @@ export default function UserManagement({ user }) {
                 }))
                 setUsers(studentList)
 
-                // Pre-fetch full details from backend for all students
                 const fullDetails = await Promise.all(
                     studentList.map(u => getUserById(u.id).catch(() => null))
                 )
@@ -187,7 +188,6 @@ export default function UserManagement({ user }) {
             let fullUser = userToEdit
             if (userToEdit.id && activeTab !== 'schools') {
                 try {
-                    // Fetch full user details from backend
                     fullUser = await getUserById(userToEdit.id)
                 } catch (err) {
                     console.error('Failed to fetch user details', err)
@@ -330,7 +330,7 @@ export default function UserManagement({ user }) {
                 }
             }
             setIsModalOpen(false)
-            setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`)
+            setSuccessMessage((activeTab === 'schools' ? 'School' : 'User') + ' saved successfully!')
             const savedUser = localStorage.getItem('user')
             const currentUser = savedUser ? JSON.parse(savedUser) : null
             if (editingUser && currentUser && currentUser.id === editingUser.id) {
@@ -365,7 +365,7 @@ export default function UserManagement({ user }) {
             } else {
                 await deleteUser(id)
             }
-            setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} deleted successfully!`)
+            setSuccessMessage((activeTab === 'schools' ? 'School' : 'User') + ' deleted successfully!')
             setTimeout(() => setSuccessMessage(null), 3000)
             await loadUsers()
             setIsDeleteModalOpen(false)
@@ -377,7 +377,6 @@ export default function UserManagement({ user }) {
         }
     }
 
-    // Fetch full student data from backend when row is expanded
     const toggleRow = async (userId) => {
         if (expandedRow === userId) {
             setExpandedRow(null)
@@ -394,25 +393,13 @@ export default function UserManagement({ user }) {
         }
     }
 
-    const handleResetPassword = (userToReset) => {
-        setResetPasswordUser(userToReset)
-        setNewPassword('')
-    }
-
-    const generatePasswordForReset = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-        let pass = ''
-        for (let i = 0; i < 12; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length))
-        setNewPassword(pass)
-    }
-
     const confirmResetPassword = async () => {
         if (!resetPasswordUser) return
         setSaving(true)
         try {
             const result = await resetPassword(resetPasswordUser.id)
             const tempPwd = result.newPassword || result.temporaryPassword || '(check server logs)'
-            setSuccessMessage(`Password reset for ${resetPasswordUser.name}!\nTemporary Password: ${tempPwd}`)
+            setSuccessMessage('Password reset for ' + resetPasswordUser.name + '!\nTemporary Password: ' + tempPwd)
             setTimeout(() => setSuccessMessage(null), 10000)
             setResetPasswordUser(null)
             setNewPassword('')
@@ -520,10 +507,7 @@ export default function UserManagement({ user }) {
                                 setSelectedClass(null)
                                 setSearchTerm('')
                             }}
-                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === role.id
-                                ? 'border-purple-600 text-purple-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
+                            className={'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (activeTab === role.id ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300')}
                         >
                             {role.label}
                         </button>
@@ -549,8 +533,8 @@ export default function UserManagement({ user }) {
                             )}
                             <h3 className="text-lg font-medium text-gray-900">
                                 {selectedSchool
-                                    ? (selectedClass ? `${selectedSchool} - ${selectedClass}` : `${selectedSchool} Classes`)
-                                    : `Manage ${roles.find(r => r.id === activeTab)?.label}`}
+                                    ? (selectedClass ? (selectedSchool + ' - ' + selectedClass) : (selectedSchool + ' Classes'))
+                                    : ('Manage ' + (roles.find(r => r.id === activeTab)?.label || ''))}
                             </h3>
                         </div>
                         <button
@@ -576,12 +560,13 @@ export default function UserManagement({ user }) {
                         />
                     </div>
 
-                    {/* ── School Cards View ── */}
+                    {/* School Cards View */}
                     {activeTab === 'student' && !selectedSchool ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {(() => {
                                 const schoolsMap = {}
-                                users.filter(u => u.role === 'student' && (!searchTerm || u.school?.toLowerCase().includes(searchTerm.toLowerCase()) || u.name.toLowerCase().includes(searchTerm.toLowerCase())))
+                                users
+                                    .filter(u => u.role === 'student' && (!searchTerm || (u.school && u.school.toLowerCase().includes(searchTerm.toLowerCase())) || u.name.toLowerCase().includes(searchTerm.toLowerCase())))
                                     .forEach(u => {
                                         const sName = u.school || 'Unknown School'
                                         if (!schoolsMap[sName]) schoolsMap[sName] = { count: 0, students: [] }
@@ -605,11 +590,12 @@ export default function UserManagement({ user }) {
                         </div>
 
                     ) : activeTab === 'student' && selectedSchool && !selectedClass ? (
-                        /* ── Class Cards View ── */
+                        /* Class Cards View */
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             {(() => {
                                 const classesMap = {}
-                                users.filter(u => u.role === 'student' && u.school === selectedSchool)
+                                users
+                                    .filter(u => u.role === 'student' && u.school === selectedSchool)
                                     .forEach(u => {
                                         const rawClass = u.class || u.className || 'No Class'
                                         const cName = formatClassName(rawClass)
@@ -635,7 +621,7 @@ export default function UserManagement({ user }) {
                         </div>
 
                     ) : activeTab === 'schools' ? (
-                        /* ── Schools Table ── */
+                        /* Schools Table */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -647,28 +633,30 @@ export default function UserManagement({ user }) {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {schoolsData.filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase())).map(school => (
-                                        <tr key={school.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{school.name}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">{school.address || '-'}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                <div className="font-semibold">{school.contactName || '-'}</div>
-                                                <div className="text-xs text-gray-400">{school.email || school.contactNumber}</div>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-center">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
-                                                    <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {schoolsData
+                                        .filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                        .map(school => (
+                                            <tr key={school.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">{school.name}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{school.address || '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <div className="font-semibold">{school.contactName || '-'}</div>
+                                                    <div className="text-xs text-gray-400">{school.email || school.contactNumber}</div>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-center">
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
+                                                        <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
                                 </tbody>
                             </table>
                         </div>
 
                     ) : activeTab === 'student' && selectedSchool && selectedClass ? (
-                        /* ── Student Table with Expandable Rows ── */
+                        /* Student Table with Expandable Rows */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -708,14 +696,16 @@ export default function UserManagement({ user }) {
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
                                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                {full.section ? `Section ${full.section}` : '—'}
+                                                                {full.section ? ('Section ' + full.section) : '—'}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
                                                             {full.parentEmail
-                                                                ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                                    <PhoneIcon className="w-3 h-3" />{full.parentEmail}
-                                                                </span>
+                                                                ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                                        <PhoneIcon className="w-3 h-3" />{full.parentEmail}
+                                                                    </span>
+                                                                )
                                                                 : <span className="text-gray-300">—</span>}
                                                         </td>
                                                         <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
@@ -738,29 +728,17 @@ export default function UserManagement({ user }) {
                                                         </td>
                                                     </tr>
 
-                                                    {/* ── Expanded Row — data fetched from backend ── */}
+                                                    {/* Expanded Row */}
                                                     {expandedRow === u.id && (
                                                         <tr className="bg-gray-50">
                                                             <td colSpan={6} className="px-8 py-4">
                                                                 {(() => {
                                                                     const full = expandedUserData[u.id] || u
                                                                     return (
-                                                                        <div className="grid grid-cols-3 gap-4">
+                                                                        <div className="grid grid-cols-2 gap-4">
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
                                                                                 <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
-                                                                            </div>
-                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Date of Birth</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.dateOfBirth || '—'}</p>
-                                                                            </div>
-                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.gender || '—'}</p>
-                                                                            </div>
-                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Parent Name</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.parentName || '—'}</p>
                                                                             </div>
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
@@ -773,14 +751,6 @@ export default function UserManagement({ user }) {
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
                                                                                 <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(full.timeSpent)}</p>
-                                                                            </div>
-                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Age</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.age ? `${full.age} yrs` : '—'}</p>
-                                                                            </div>
-                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Age</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.age ? `${full.age} yrs` : '—'}</p>
                                                                             </div>
                                                                         </div>
                                                                     )
@@ -795,16 +765,16 @@ export default function UserManagement({ user }) {
                                         const rawClass = u.class || u.className || 'No Class'
                                         return formatClassName(rawClass) === selectedClass
                                     }).length === 0 && (
-                                            <tr>
-                                                <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
-                                            </tr>
-                                        )}
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
 
                     ) : (
-                        /* ── Generic Table for school_admin / psychologist / content_admin ── */
+                        /* Generic Table */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -832,7 +802,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* ── Create / Edit Modal ── */}
+                    {/* Create / Edit Modal */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 overflow-y-auto">
                             <div className="flex items-center justify-center min-h-screen px-4">
@@ -846,7 +816,7 @@ export default function UserManagement({ user }) {
                                                 type="text"
                                                 value={formData.name}
                                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                                                className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.name ? 'border-red-500' : 'border-gray-300')}
                                             />
                                             {validationErrors.name && <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>}
                                         </div>
@@ -855,23 +825,42 @@ export default function UserManagement({ user }) {
                                             <>
                                                 <div>
                                                     <label className="block text-sm font-medium">Physical Address</label>
-                                                    <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                    <textarea
+                                                        value={formData.address}
+                                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                    />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Contact Person</label>
-                                                        <input type="text" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.contactName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.contactName}
+                                                            onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.contactName ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.contactName && <p className="text-red-500 text-xs mt-1">{validationErrors.contactName}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Official Email</label>
-                                                        <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium">Phone Number</label>
-                                                    <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                    <input
+                                                        type="text"
+                                                        value={formData.phoneNumber}
+                                                        onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                    />
                                                 </div>
                                             </>
                                         ) : activeTab === 'student' ? (
@@ -879,12 +868,21 @@ export default function UserManagement({ user }) {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Date of Birth</label>
-                                                        <input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="date"
+                                                            value={formData.dateOfBirth}
+                                                            onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Class</label>
-                                                        <select value={formData.class} onChange={(e) => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.class}
+                                                            onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.class ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select Class</option>
                                                             {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                                         </select>
@@ -894,7 +892,11 @@ export default function UserManagement({ user }) {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Section</label>
-                                                        <select value={formData.section} onChange={(e) => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.section}
+                                                            onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.section ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select Section</option>
                                                             <option value="A">Section A</option>
                                                             <option value="B">Section B</option>
@@ -905,19 +907,33 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Roll No</label>
-                                                        <input type="text" value={formData.rollNo} onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.rollNo ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.rollNo}
+                                                            onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.rollNo ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Email</label>
-                                                        <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Gender</label>
-                                                        <select value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                                                        <select
+                                                            value={formData.gender}
+                                                            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        >
                                                             <option value="">Select Gender</option>
                                                             <option value="Male">Male</option>
                                                             <option value="Female">Female</option>
@@ -929,27 +945,47 @@ export default function UserManagement({ user }) {
                                                     <div>
                                                         <label className="block text-sm font-medium">Password</label>
                                                         <div className="flex gap-2">
-                                                            <input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                                                            <input
+                                                                type="text"
+                                                                value={formData.password}
+                                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                                className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
+                                                            />
                                                             <button onClick={generatePassword} type="button" className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Gen</button>
                                                         </div>
                                                         {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Name</label>
-                                                        <input type="text" value={formData.parentName} onChange={(e) => setFormData({ ...formData, parentName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.parentName}
+                                                            onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentName ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
                                                     </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Phone Number</label>
-                                                        <input type="text" value={formData.parentPhone} onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="10-digit mobile number" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.parentPhone}
+                                                            onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
+                                                            placeholder="10-digit mobile number"
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
                                                     </div>
                                                     {(user?.role === 'SUPER_ADMIN' || editingUser) && (
                                                         <div>
                                                             <label className="block text-sm font-medium">School</label>
-                                                            <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
+                                                            <select
+                                                                value={formData.school}
+                                                                onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+                                                                className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.school ? 'border-red-500' : 'border-gray-300')}
+                                                            >
                                                                 <option value="">Select School</option>
                                                                 {schoolsData.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                                             </select>
@@ -985,19 +1021,34 @@ export default function UserManagement({ user }) {
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Email</label>
-                                                        <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Phone Number</label>
-                                                        <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.phoneNumber}
+                                                            onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium">Password</label>
                                                     <div className="flex gap-2">
-                                                        <input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.password}
+                                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         <button onClick={generatePassword} type="button" className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Generate</button>
                                                     </div>
                                                     {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
@@ -1005,7 +1056,11 @@ export default function UserManagement({ user }) {
                                                 {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
                                                     <div className="mt-4">
                                                         <label className="block text-sm font-medium">School</label>
-                                                        <select value={formData.school} onChange={(e) => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.school}
+                                                            onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.school ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select School</option>
                                                             {schoolsData.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                                         </select>
@@ -1026,7 +1081,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* ── Delete Modal ── */}
+                    {/* Delete Modal */}
                     {isDeleteModalOpen && (
                         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)}></div>
