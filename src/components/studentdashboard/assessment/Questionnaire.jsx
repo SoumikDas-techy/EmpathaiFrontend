@@ -44,8 +44,7 @@ export default function Questionnaire ({ user }) {
       user?.class        ||
       user?.grade        ||
       user?.studentClass ||
-      user?.classId      ||
-      user?.school
+      user?.classId
 
     console.log('[Questionnaire] user keys:', user ? Object.keys(user) : 'no user')
     console.log('[Questionnaire] user:', user, '| className:', className)
@@ -64,6 +63,7 @@ export default function Questionnaire ({ user }) {
             id:       q.id || i + 1,
             text:     q.questions || q.questionText || '',
             groupMap: q.group_map || q.groupMap  || '',
+            groupMapId: q.groupMapId || q.group_map_id || null,  // numeric group ID
             options: [
               
               { value: 8, label: (q.option_a || q.optionA || '').trim(), emotion: detectEmotion(q.option_a || q.optionA || '') },
@@ -125,7 +125,7 @@ export default function Questionnaire ({ user }) {
     }
   ]
 
-const activeQuestions = apiQuestions.length > 0 ? apiQuestions : defaultQuestions
+const activeQuestions = apiQuestions  // always use DB questions only
 const currentQ        = activeQuestions[currentQuestion]
 const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.length) * 100 : 100
 
@@ -134,7 +134,7 @@ const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.leng
     const savedUser = localStorage.getItem('user')
     const u = savedUser ? JSON.parse(savedUser) : user
 
-    const studentId   = u?.id || u?.email || 'guest_' + Date.now()
+    const studentId   = u?.id ?? null   // always numeric user ID
     const studentName = `${u?.firstName || u?.name || ''} ${u?.lastName || ''}`.trim() || 'Guest'
 
     const resolvedClass =
@@ -144,6 +144,22 @@ const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.leng
       u?.grade      || ''
 
     const groupName = (question.groupMap || '').split(',')[0].trim() || resolvedClass
+    const groupId   = question.groupMapId ?? null   // numeric group ID
+
+    const computedAge = (() => {
+      if (u?.age != null && u.age < 120) return u.age
+      if (u?.dateOfBirth) {
+        try {
+          const dob = new Date(u.dateOfBirth)
+          const today = new Date()
+          let age = today.getFullYear() - dob.getFullYear()
+          const m = today.getMonth() - dob.getMonth()
+          if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+          return age > 0 && age < 120 ? age : null
+        } catch { return null }
+      }
+      return null
+    })()
 
     const payload = {
       studentId,
@@ -154,10 +170,10 @@ const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.leng
       responseValue: selectedLabel,
       emotion:       detectEmotion(selectedLabel),
       groupName,
-      groupId:       groupName,
+      groupId,
       className:     resolvedClass,
-      gender:        u?.gender || null,
-      age:           u?.age    || null,
+      gender:        u?.gender ?? null,
+      age:           computedAge,
       schoolName:    u?.schoolName || u?.school || u?.institutionName || null
     }
 
@@ -232,6 +248,18 @@ const progress        = currentQ ? ((currentQuestion + 1) / activeQuestions.leng
     return (
       <div className="flex items-center justify-center min-h-64">
         <p className="text-purple-500 font-medium animate-pulse">Loading your questions…</p>
+      </div>
+    )
+  }
+
+  if (activeQuestions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-64 gap-3 px-4">
+        <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mb-2">
+          <ClipboardDocumentListIcon className="w-8 h-8 text-purple-300" />
+        </div>
+        <p className="text-gray-600 font-semibold text-lg text-center">No questions available right now</p>
+        <p className="text-gray-400 text-sm text-center">Your teacher hasn't added any questions for your class yet. Please check back later.</p>
       </div>
     )
   }

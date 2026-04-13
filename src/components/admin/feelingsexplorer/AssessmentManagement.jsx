@@ -494,15 +494,15 @@ const handleOptionClick = (question, option) => {
    
     age: (() => {
         const fromDob = calculateAgeFromDOB(user?.dateOfBirth)
-        if (fromDob) return fromDob
+        if (fromDob != null) return fromDob
         const raw = user?.age
-        if (!raw || String(raw) === 'null' || String(raw) === 'undefined') return null
+        if (raw == null) return null
         const n = Number(raw)
         return isNaN(n) ? null : n
     })(),
+    gender: user?.gender ?? user?.sex ?? null,
     className: user?.className || groupName,
     
-    gender: user?.gender || null,
     groupId: currentGroupId,
     groupName: groupName,
     questionId: question.id,

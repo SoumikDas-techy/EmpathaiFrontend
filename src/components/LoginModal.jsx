@@ -15,18 +15,37 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
     try {
       const user = await login(email, password)
       // Normalize the user object for App.jsx usage
+      const computedAge = (() => {
+        if (user.age != null) return user.age
+        if (user.dateOfBirth) {
+          try {
+            const dob = new Date(user.dateOfBirth)
+            const today = new Date()
+            let age = today.getFullYear() - dob.getFullYear()
+            const m = today.getMonth() - dob.getMonth()
+            if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+            return age > 0 ? age : null
+          } catch { return null }
+        }
+        return null
+      })()
+
       const normalized = {
         id: user.id,
         name: user.name,
         firstName: user.name?.split(' ')[0] || user.name,
         lastName: user.name?.split(' ').slice(1).join(' ') || '',
         email: user.email,
-        role: user.role,          // Backend enum: SUPER_ADMIN, SCHOOL_ADMIN, etc.
+        role: user.role,
         school: user.school || null,
         className: user.className || null,
-  section: user.section || null,
-  rollNo: user.rollNo || null,
-  schoolId: user.schoolId || null,
+        section: user.section || null,
+        rollNo: user.rollNo || null,
+        schoolId: user.schoolId || null,
+        gender: user.gender ?? null,
+        age: computedAge,
+        dateOfBirth: user.dateOfBirth ?? null,
+        parentName: user.parentName ?? null,
       }
       onLogin(normalized)
       onClose()
