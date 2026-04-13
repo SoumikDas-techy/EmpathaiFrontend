@@ -11,7 +11,7 @@ import { getCurrentUser, logout as authLogout, isAdminRole } from './api/authApi
 import { clearTokens } from './api/apiClient.js'
 
 // Backend role enums that should route to the admin panel
-const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN']
+const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN', 'TEACHER']
 
 function isAdmin(user) {
   if (!user) return false
