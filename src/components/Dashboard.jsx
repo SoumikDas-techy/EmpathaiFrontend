@@ -18,11 +18,8 @@ import {
   AcademicCapIcon,
   CheckCircleIcon,
   XMarkIcon,
-  StarIcon,
   ShieldCheckIcon,
-  TrophyIcon,
 } from '@heroicons/react/24/outline'
-import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
 
 import Assessment from "./studentdashboard/assessment/Assessment";
 import Chatbot from "./studentdashboard/chatbuddy/Chatbot";
@@ -34,7 +31,7 @@ import Activities from "./studentdashboard/activity/Activities";
 import Questionnaire from './studentdashboard/assessment/Questionnaire';
 import Schedule from './studentdashboard/schedule/Schedule';
 import { getWeekTasks } from '../api/scheduleApi.js';
-import { fetchStudentBadges } from '../api/rewardsApi.js';
+import { fetchMyBadges, fetchStudentBadges } from '../api/rewardsApi.js';
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
@@ -43,7 +40,6 @@ function toDataUrl(imageBase64, imageType) {
   return `data:${imageType || 'image/png'};base64,${imageBase64}`
 }
 
-// Emoji & colour config per trigger type
 const BADGE_META = {
   login:        { emoji: '🔑', color: 'from-blue-400 to-indigo-500',   bg: 'bg-blue-50',   border: 'border-blue-200',   label: 'Login Milestone'        },
   intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50',  border: 'border-green-200',  label: 'Wellbeing Milestone'    },
@@ -66,25 +62,18 @@ export default function Dashboard({ user, onLogout }) {
   const [activeHeaderModal, setActiveHeaderModal] = useState(null)
   const [chatMessage, setChatMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showDailyCheckin, setShowDailyCheckin] = useState(true)
-  const [selectedSleep, setSelectedSleep] = useState(null)
-  const [selectedMood, setSelectedMood] = useState(null)
-
-  const [showBreathing, setShowBreathing] = useState(false)
+  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false)
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false)
   const [activeDay, setActiveDay] = useState('Monday')
 
-  // ── Tasks state ────────────────────────────────────────────────────────────
   const emptyWeek = {
     'Monday': [], 'Tuesday': [], 'Wednesday': [],
     'Thursday': [], 'Friday': [], 'Saturday': [], 'Sunday': []
   }
+  
   const [tasks, setTasks] = useState(emptyWeek)
   const [tasksLoading, setTasksLoading] = useState(false)
   const [tasksError, setTasksError] = useState('')
-  // ──────────────────────────────────────────────────────────────────────────
-
-  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false)
-  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false)
 
   const [notifications, setNotifications] = useState([
     { id: 1, title: 'New Math Quiz Available!', time: '10 mins ago', type: 'academic', read: false },
@@ -92,7 +81,6 @@ export default function Dashboard({ user, onLogout }) {
     { id: 3, title: 'Dr. Sarah replied to you', time: '2 hours ago', type: 'social', read: true },
   ])
 
-  // ── Load full week tasks from backend on mount ─────────────────────────────
   useEffect(() => {
     if (!user?.id) return
 
@@ -130,41 +118,24 @@ export default function Dashboard({ user, onLogout }) {
   const sidebarItems = [
     { id: 'overview', name: 'Overview', icon: HomeIcon },
     { id: 'chatbuddy', name: 'ChatBuddy', icon: ChatBubbleLeftRightIcon },
-    { id: 'curriculum', name: 'Curriculum', icon: AcademicCapIcon },
     { id: 'schedule', name: 'My Schedule', icon: CalendarIcon },
     { id: 'questionnaire', name: 'Feelings Explorer', icon: ClipboardDocumentListIcon },
     { id: 'activities', name: 'Activities', icon: PuzzlePieceIcon }
-  // TODO: Unhide curriculum when ready — delete the .filter() line below
-  ].filter(item => item.id !== 'curriculum')
+  ]
 
   const performSearch = () => {
     const query = searchQuery.toLowerCase().trim()
     if (!query) return
 
     const tabMap = {
-      'overview': 'overview',
-      'home': 'overview',
-      'chat': 'chatbuddy',
-      'chatbuddy': 'chatbuddy',
-      'buddy': 'chatbuddy',
-      'curriculum': 'curriculum',
-      'learn': 'curriculum',
-      'lessons': 'curriculum',
-      'schedule': 'schedule',
-      'tasks': 'schedule',
-      'planner': 'schedule',
-      'feelings': 'questionnaire',
-      'explorer': 'questionnaire',
-      'assessment': 'questionnaire',
-      'questionnaire': 'questionnaire',
-      'activities': 'activities',
-      'tools': 'activities',
-      'wellness': 'activities',
+      'overview': 'overview', 'home': 'overview',
+      'chat': 'chatbuddy', 'chatbuddy': 'chatbuddy', 'buddy': 'chatbuddy',
+      'schedule': 'schedule', 'tasks': 'schedule',
+      'feelings': 'questionnaire', 'explorer': 'questionnaire',
+      'activities': 'activities', 'tools': 'activities',
     }
 
-    const match = sidebarItems.find(item =>
-      item.name.toLowerCase().includes(query)
-    )
+    const match = sidebarItems.find(item => item.name.toLowerCase().includes(query))
     if (match) { setActiveTab(match.id); return }
 
     for (const [keyword, tabId] of Object.entries(tabMap)) {
@@ -181,17 +152,13 @@ export default function Dashboard({ user, onLogout }) {
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="flex items-center justify-between px-6 py-4">
-          {/* Logo */}
           <div className="flex items-center space-x-3 group cursor-pointer">
             <div className="w-9 h-9 bg-purple-200 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200/50 group-hover:rotate-6 transition-transform">
               <span className="text-dark-navy font-black text-lg">E</span>
             </div>
-            <h1 className="text-xl font-black text-black tracking-tight">
-              EmpathAI
-            </h1>
+            <h1 className="text-xl font-black text-black tracking-tight">EmpathAI</h1>
           </div>
 
-          {/* Search Bar */}
           <div className="flex-1 max-w-2xl mx-8">
             <div className="relative group">
               <MagnifyingGlassIcon
@@ -217,15 +184,12 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Right Side Icons */}
           <div className="flex items-center space-x-5">
-            {/* XP Badge */}
             <div className="flex items-center bg-yellow-400/10 border border-yellow-400/20 rounded-full px-4 py-1.5 shadow-sm">
               <BoltIcon className="w-4 h-4 text-yellow-500 mr-2" />
               <span className="text-yellow-700 font-bold text-sm">385 XP</span>
             </div>
 
-            {/* Calendar Icon - Daily Schedule Tracker */}
             <div className="relative group">
               <CalendarIcon
                 onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
@@ -270,13 +234,11 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Gift Icon — opens Badges modal */}
             <GiftIcon
               onClick={() => setActiveHeaderModal('rewards')}
               className="w-6 h-6 text-gray-400 hover:text-primary cursor-pointer transition-colors"
             />
 
-            {/* Notification Bell */}
             <div className="relative group">
               <BellIcon
                 onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
@@ -288,7 +250,6 @@ export default function Dashboard({ user, onLogout }) {
                 </span>
               )}
 
-              {/* Notifications Dropdown */}
               <div
                 className={`absolute top-full right-0 mt-4 w-80 bg-white rounded-2xl shadow-2xl border-2 border-purple-100 p-0 transition-all duration-300 transform origin-top-right z-50 overflow-hidden ${showNotificationsDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
               >
@@ -319,7 +280,6 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* User Avatar */}
             <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-black text-black">{(user.name || user.firstName)?.split(' ')[0]}</p>
@@ -334,7 +294,6 @@ export default function Dashboard({ user, onLogout }) {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <aside className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen">
           <nav className="p-4 flex flex-col h-full">
             <ul className="space-y-2 flex-1">
@@ -353,8 +312,6 @@ export default function Dashboard({ user, onLogout }) {
                 </li>
               ))}
             </ul>
-
-            {/* Logout Button */}
             <button
               onClick={onLogout}
               className="w-full flex items-center px-4 py-3 text-sm font-bold rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all mt-4"
@@ -365,11 +322,9 @@ export default function Dashboard({ user, onLogout }) {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-6">
           {activeTab === 'overview' && <Overview user={user} setActiveTab={setActiveTab} />}
           {activeTab === 'chatbuddy' && <ChatBuddy user={user} initialMessage={chatMessage} setChatMessage={setChatMessage} />}
-          {activeTab === 'curriculum' && <Curriculum user={user} setActiveTab={setActiveTab} navigateToChat={navigateToChat} />}
           {activeTab === 'schedule' && (
             tasksLoading ? (
               <div className="flex flex-col items-center justify-center h-64 gap-3">
@@ -381,20 +336,13 @@ export default function Dashboard({ user, onLogout }) {
                 ⚠️ {tasksError}
               </div>
             ) : (
-              <Schedule
-                user={user}
-                tasks={tasks}
-                setTasks={setTasks}
-                activeDay={activeDay}
-                setActiveDay={setActiveDay}
-              />
+              <Schedule user={user} tasks={tasks} setTasks={setTasks} activeDay={activeDay} setActiveDay={setActiveDay} />
             )
           )}
           {activeTab === 'questionnaire' && <Questionnaire user={user} />}
           {activeTab === 'activities' && <Activities user={user} />}
         </main>
 
-        {/* Right Sidebar - Only show in overview */}
         {activeTab === 'overview' && (
           <aside className="w-80 bg-white border-l border-gray-200 p-6">
             <RightSidebar />
@@ -402,7 +350,6 @@ export default function Dashboard({ user, onLogout }) {
         )}
       </div>
 
-      {/* Header Modals */}
       {activeHeaderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
@@ -412,7 +359,6 @@ export default function Dashboard({ user, onLogout }) {
             >
               ×
             </button>
-
             {activeHeaderModal === 'rewards' && <BadgesModal user={user} />}
             {activeHeaderModal === 'notifications' && <NotificationsModal />}
           </div>
@@ -421,7 +367,7 @@ export default function Dashboard({ user, onLogout }) {
     </div>
   )
 
-  // ── Badges Modal — fetches real data from backend ─────────────────────────
+  // ── Badges Modal ──────────────────────────────────────────────────────────────
   function BadgesModal({ user }) {
     const [badges, setBadges] = useState([])
     const [loading, setLoading] = useState(true)
@@ -429,20 +375,30 @@ export default function Dashboard({ user, onLogout }) {
     const [activeFilter, setActiveFilter] = useState('all')
 
     useEffect(() => {
-      if (!user?.id) return
+      // CRITICAL FIX: Using fetchMyBadges() which relies on API Client's JWT injection
       const load = async () => {
         try {
           setLoading(true)
-          const data = await fetchStudentBadges(user.id)
-          setBadges(data)
+          setError('')
+          
+          // No token needed here - apiClient handles it automatically
+          const data = await fetchMyBadges()
+          setBadges(data || [])
         } catch (e) {
-          setError('Could not load your badges. Please try again.')
+          console.error('Badge fetch error:', e)
+          if (e.message.includes('Unauthorized')) {
+            setError('Session expired. Please log in again.')
+          } else if (e.message.includes('Forbidden')) {
+            setError('Access denied. Please contact support.')
+          } else {
+            setError('Could not load your badges. Please try again.')
+          }
         } finally {
           setLoading(false)
         }
       }
       load()
-    }, [user?.id])
+    }, [])
 
     const filters = [
       { id: 'all', label: 'All' },
@@ -450,23 +406,13 @@ export default function Dashboard({ user, onLogout }) {
       { id: 'intervention', label: '💪 Wellbeing' },
     ]
 
-    const filtered = activeFilter === 'all'
-      ? badges
-      : badges.filter(b => b.triggerType === activeFilter)
+    const filtered = activeFilter === 'all' ? badges : badges.filter(b => b.triggerType === activeFilter)
 
-    // Login milestone map for progress display
-    const LOGIN_MILESTONES = [1, 2, 5, 10, 25, 50, 100]
-    const INTERVENTION_MILESTONES = [1, 3, 5, 10]
-
-    const earnedLoginValues = badges
-      .filter(b => b.triggerType === 'login')
-      .map(b => parseInt(b.triggerValue))
-
+    const earnedLoginValues = badges.filter(b => b.triggerType === 'login').map(b => parseInt(b.triggerValue))
     const maxLoginEarned = earnedLoginValues.length > 0 ? Math.max(...earnedLoginValues) : 0
 
     return (
       <div>
-        {/* Header */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-orange-200">
             <span className="text-3xl">🏆</span>
@@ -477,7 +423,6 @@ export default function Dashboard({ user, onLogout }) {
           </p>
         </div>
 
-        {/* Login progress bar */}
         {badges.some(b => b.triggerType === 'login') && (
           <div className="mb-6 bg-blue-50 border border-blue-100 rounded-2xl p-4">
             <div className="flex justify-between items-center mb-2">
@@ -485,7 +430,7 @@ export default function Dashboard({ user, onLogout }) {
               <span className="text-xs font-bold text-blue-500">{maxLoginEarned} logins</span>
             </div>
             <div className="flex items-center gap-1.5">
-              {LOGIN_MILESTONES.map(m => {
+              {[1, 2, 5, 10, 25, 50, 100].map(m => {
                 const earned = earnedLoginValues.includes(m)
                 return (
                   <div key={m} className="flex-1 flex flex-col items-center gap-1">
@@ -498,18 +443,13 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Filter tabs */}
         {badges.length > 0 && (
           <div className="flex gap-2 mb-5">
             {filters.map(f => (
               <button
                 key={f.id}
                 onClick={() => setActiveFilter(f.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  activeFilter === f.id
-                    ? 'bg-purple-600 text-white shadow'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-purple-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
               >
                 {f.label}
               </button>
@@ -517,7 +457,6 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Content */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
@@ -525,7 +464,16 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         ) : error ? (
           <div className="text-center py-8 bg-red-50 rounded-2xl border border-red-100">
-            <p className="text-sm text-red-500">{error}</p>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <XMarkIcon className="w-6 h-6 text-red-500" />
+            </div>
+            <p className="text-sm text-red-600 font-medium mb-2">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : badges.length === 0 ? (
           <div className="text-center py-12">
@@ -539,17 +487,13 @@ export default function Dashboard({ user, onLogout }) {
             <div className="mt-5 grid grid-cols-2 gap-3 text-left">
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                 <p className="text-xs font-black text-blue-700 mb-1">🔑 Login Badges</p>
-                <p className="text-[11px] text-blue-500">Log in daily to earn milestones at 1, 2, 5, 10, 25, 50 and 100 logins</p>
+                <p className="text-[11px] text-blue-500">Log in daily to earn milestones.</p>
               </div>
               <div className="bg-green-50 border border-green-100 rounded-xl p-3">
                 <p className="text-xs font-black text-green-700 mb-1">💪 Wellbeing Badges</p>
-                <p className="text-[11px] text-green-500">Complete intervention sessions to earn badges at 1, 3, 5 and 10 sessions</p>
+                <p className="text-[11px] text-green-500">Complete intervention sessions.</p>
               </div>
             </div>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">
-            <p className="text-sm">No badges in this category yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -560,101 +504,45 @@ export default function Dashboard({ user, onLogout }) {
                   key={badge.id}
                   className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-md transition-shadow`}
                 >
-                  {/* Badge image or gradient icon */}
                   <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
                     {badge.imageBase64
                       ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
                       : <span className="text-2xl">{meta.emoji}</span>
                     }
                   </div>
-
-                  {/* Title */}
                   <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
-
-                  {/* Description */}
-                  {badge.description && (
-                    <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>
-                  )}
-
-                  {/* Earned label */}
+                  {badge.description && <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>}
                   <span className="inline-flex items-center gap-1 bg-white/80 border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-black text-gray-600">
                     <ShieldCheckIcon className="w-3 h-3 text-green-500" />
                     {meta.label}
                   </span>
-
-                  {/* Earned date */}
-                  {badge.earnedAt && (
-                    <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>
-                  )}
-
-                  {/* Sparkle corner */}
+                  {badge.earnedAt && <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>}
                   <span className="absolute top-2 right-2 text-xs">✨</span>
                 </div>
               )
             })}
           </div>
         )}
-
-        {/* Footer hint */}
-        {badges.length > 0 && (
-          <p className="text-center text-xs text-gray-400 mt-5 pt-4 border-t border-gray-100">
-            Badges are awarded automatically when you hit milestones 🎉
-          </p>
-        )}
       </div>
     )
   }
 
-  // Notifications Modal Component
   function NotificationsModal() {
-    const notifications = [
-      {
-        id: 1,
-        title: 'Great job on Math!',
-        message: 'You completed Chapter 5 with 85% accuracy',
-        time: '2 hours ago',
-        type: 'achievement',
-        read: false
-      },
-      {
-        id: 2,
-        title: 'Reminder: Daily Check-in',
-        message: "Don't forget to log your mood today",
-        time: '1 day ago',
-        type: 'reminder',
-        read: true
-      },
-      {
-        id: 3,
-        title: 'New Meditation Session',
-        message: 'Try our new 10-minute focus meditation',
-        time: '2 days ago',
-        type: 'feature',
-        read: true
-      }
-    ]
-
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔔 Notifications</h3>
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {notifications.map((notif) => (
-            <div key={notif.id} className={`p-4 rounded-lg border ${!notif.read
-              ? 'border-purple-300 bg-purple-50'
-              : 'border-gray-200 bg-gray-50'
-              }`}>
+            <div key={notif.id} className={`p-4 rounded-lg border ${!notif.read ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
               <div className="flex justify-between items-start mb-2">
                 <h4 className="font-semibold text-gray-900">{notif.title}</h4>
                 {!notif.read && <div className="w-2 h-2 bg-purple-600 rounded-full"></div>}
               </div>
-              <p className="text-sm text-gray-700 mb-2">{notif.message}</p>
-              <p className="text-xs text-gray-500">{notif.time}</p>
+              <p className="text-sm text-gray-700 mb-2">{notif.time}</p>
             </div>
           ))}
         </div>
-        <button className="w-full mt-4 bg-black text-white py-2 rounded-lg hover:bg-gray-800">
-          Mark All as Read
-        </button>
+        <button className="w-full mt-4 bg-black text-white py-2 rounded-lg hover:bg-gray-800">Mark All as Read</button>
       </div>
     )
   }
@@ -666,16 +554,28 @@ function Overview({ user, setActiveTab }) {
   const [badgesError, setBadgesError] = useState('')
 
   useEffect(() => {
-    if (!user?.id) {
-      setBadgesError(`No user ID — user object: ${JSON.stringify(user)}`)
-      setBadgesLoading(false)
-      return
+    const load = async () => {
+      try {
+        setBadgesLoading(true)
+        setBadgesError('')
+        // CRITICAL FIX: Use fetchMyBadges() - no user.id needed
+        const data = await fetchMyBadges()
+        setBadges(data || [])
+      } catch (err) {
+        console.error('Badge fetch error:', err)
+        if (err.message.includes('Unauthorized')) {
+          setBadgesError('Session expired. Please log in again.')
+        } else if (err.message.includes('Forbidden')) {
+          setBadgesError('Access denied. Please contact support.')
+        } else {
+          setBadgesError('Could not load badges. Please refresh.')
+        }
+      } finally {
+        setBadgesLoading(false)
+      }
     }
-    fetchStudentBadges(user.id)
-      .then(data => { setBadges(data || []); setBadgesError('') })
-      .catch(err => setBadgesError(`API error (student ID=${user.id}): ${err.message}`))
-      .finally(() => setBadgesLoading(false))
-  }, [user?.id])
+    load()
+  }, [])
 
   const achievements = [
     { title: '7-day study streak', desc: 'Keep it up!', value: '7', icon: '🔥', color: 'bg-orange-100', textColor: 'text-orange-600' },
@@ -693,20 +593,14 @@ function Overview({ user, setActiveTab }) {
 
   return (
     <div className="font-lora">
-      {/* Welcome Message */}
       <div className="mb-10 text-center">
-        <h1 className="text-3xl font-black text-dark-navy mb-1.5 tracking-tight">
-          Welcome back, {(user.name || user.firstName)?.split(' ')[0]}! 🌟
-        </h1>
+        <h1 className="text-3xl font-black text-dark-navy mb-1.5 tracking-tight">Welcome back, {(user.name || user.firstName)?.split(' ')[0]}! 🌟</h1>
         <p className="text-base text-gray-500 font-medium tracking-tight">Ready to continue your personalized emotional and academic journey?</p>
       </div>
 
-      {/* Hero Achievements Section */}
       <div className="mb-10 text-center">
         <h2 className="text-lg font-black text-dark-navy mb-5 flex items-center justify-center gap-2">
-          <span className="w-6 h-1 bg-purple-200 rounded-full"></span>
-          Your Milestones
-          <span className="w-6 h-1 bg-purple-200 rounded-full"></span>
+          <span className="w-6 h-1 bg-purple-200 rounded-full"></span>Your Milestones<span className="w-6 h-1 bg-purple-200 rounded-full"></span>
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {achievements.map((ach, i) => (
@@ -725,12 +619,9 @@ function Overview({ user, setActiveTab }) {
         </div>
       </div>
 
-      {/* ── Rewards & Badges ─────────────────────────────────────────────────── */}
       <div className="mb-10">
         <h2 className="text-lg font-black text-dark-navy mb-5 flex items-center justify-center gap-2">
-          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
-          🏅 Your Rewards & Badges
-          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
+          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>🏅 Your Rewards & Badges<span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
         </h2>
 
         {badgesLoading ? (
@@ -740,7 +631,16 @@ function Overview({ user, setActiveTab }) {
           </div>
         ) : badgesError ? (
           <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 text-center">
-            <p className="text-xs font-bold text-red-600 break-all">⚠️ {badgesError}</p>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <XMarkIcon className="w-6 h-6 text-red-500" />
+            </div>
+            <p className="text-sm font-bold text-red-600 mb-2">{badgesError}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : badges.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-purple-200 rounded-3xl p-8 text-center">
@@ -759,10 +659,7 @@ function Overview({ user, setActiveTab }) {
             {badges.map((badge) => {
               const meta = getBadgeMeta(badge.triggerType)
               return (
-                <div
-                  key={badge.id}
-                  className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}
-                >
+                <div key={badge.id} className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}>
                   <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
                     {badge.imageBase64
                       ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
@@ -770,16 +667,12 @@ function Overview({ user, setActiveTab }) {
                     }
                   </div>
                   <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
-                  {badge.description && (
-                    <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>
-                  )}
+                  {badge.description && <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>}
                   <span className="inline-flex items-center gap-1 bg-white/80 border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-black text-gray-600">
                     <ShieldCheckIcon className="w-3 h-3 text-green-500" />
                     {meta.label}
                   </span>
-                  {badge.earnedAt && (
-                    <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>
-                  )}
+                  {badge.earnedAt && <p className="text-[10px] text-gray-400">Earned {formatDate(badge.earnedAt)}</p>}
                   <span className="absolute top-2 right-2 text-xs">✨</span>
                 </div>
               )
@@ -788,20 +681,12 @@ function Overview({ user, setActiveTab }) {
         )}
       </div>
 
-      {/* Ongoing Learning Modules */}
       <div className="mb-10 text-center">
         <div className="flex flex-col items-center justify-center mb-6">
           <h2 className="text-lg font-black text-dark-navy flex items-center gap-2 mb-2">
-            <span className="w-6 h-1 bg-purple-200 rounded-full"></span>
-            Ongoing Learning
-            <span className="w-6 h-1 bg-purple-200 rounded-full"></span>
+            <span className="w-6 h-1 bg-purple-200 rounded-full"></span>Ongoing Learning<span className="w-6 h-1 bg-purple-200 rounded-full"></span>
           </h2>
-          <button
-            onClick={() => setActiveTab('curriculum')}
-            className="text-xs font-bold text-purple-600 hover:underline"
-          >
-            View all curriculum
-          </button>
+          <button onClick={() => setActiveTab('curriculum')} className="text-xs font-bold text-purple-600 hover:underline">View all curriculum</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {subjects.slice(0, 2).map((subject, index) => (
@@ -822,39 +707,27 @@ function Overview({ user, setActiveTab }) {
                   <p className="text-[7px] font-bold text-gray-400 uppercase tracking-tighter">Progress</p>
                 </div>
               </div>
-
               <div className="mb-4 relative z-10 px-1">
                 <div className="bg-purple-50 rounded-full h-1 overflow-hidden">
                   <div className="bg-green-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${subject.progress}%` }}></div>
                 </div>
               </div>
-
-              <button className="w-fit mx-auto px-6 bg-black text-white font-black rounded-xl py-2.5 hover:bg-gray-800 transition-all relative z-10 text-[10px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95">
-                Continue Learning
-              </button>
+              <button className="w-fit mx-auto px-6 bg-black text-white font-black rounded-xl py-2.5 hover:bg-gray-800 transition-all relative z-10 text-[10px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95">Continue Learning</button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Meditation Card */}
       <div className="mb-6">
         <div className="relative group overflow-hidden rounded-3xl border-2 border-purple-200 bg-purple-50/50">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-200/50 to-transparent transition-opacity"></div>
           <div className="p-6 flex flex-col md:flex-row items-center gap-6 relative z-10">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-3xl shadow-lg border-2 border-purple-200 animate-float">
-              🧘‍♀️
-            </div>
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-3xl shadow-lg border-2 border-purple-200 animate-float">🧘‍♀️</div>
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-xl font-black text-dark-navy mb-1 italic">Feeling Overwhelmed?</h3>
               <p className="text-gray-600 font-medium text-base leading-relaxed">Take a quick 5-minute mindfulness break to recalibrate your emotions.</p>
             </div>
-            <button
-              onClick={() => setActiveTab('activities')}
-              className="bg-black text-white font-bold px-8 py-3 rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-black/10 whitespace-nowrap text-sm"
-            >
-              Start Session
-            </button>
+            <button onClick={() => setActiveTab('activities')} className="bg-black text-white font-bold px-8 py-3 rounded-xl hover:bg-gray-800 transition-all shadow-lg shadow-black/10 whitespace-nowrap text-sm">Start Session</button>
           </div>
         </div>
       </div>
@@ -867,10 +740,7 @@ function RightSidebar() {
   const [selectedWellnessEmoji, setSelectedWellnessEmoji] = useState(null)
 
   const handleTaskToggle = (taskId) => {
-    setCompletedTasks(prev => ({
-      ...prev,
-      [taskId]: !prev[taskId]
-    }))
+    setCompletedTasks(prev => ({ ...prev, [taskId]: !prev[taskId] }))
   }
 
   const wellnessEmojis = [
@@ -881,7 +751,6 @@ function RightSidebar() {
 
   return (
     <div className="font-lora">
-      {/* Emotional Wellness */}
       <div className="mb-8">
         <h3 className="font-semibold text-gray-900 mb-4">💝 Emotional Wellness</h3>
         <div className="bg-white border-2 border-purple-200 rounded-xl p-4 min-h-[120px] flex flex-col justify-center">
@@ -894,10 +763,7 @@ function RightSidebar() {
                 <span
                   key={index}
                   onClick={() => setSelectedWellnessEmoji(item.emoji)}
-                  className={`text-4xl cursor-pointer transition-all duration-500 transform ${selectedWellnessEmoji === item.emoji
-                    ? 'scale-125 hover:scale-125'
-                    : 'hover:scale-110 grayscale-[0.5] hover:grayscale-0'
-                    }`}
+                  className={`text-4xl cursor-pointer transition-all duration-500 transform ${selectedWellnessEmoji === item.emoji ? 'scale-125 hover:scale-125' : 'hover:scale-110 grayscale-[0.5] hover:grayscale-0'}`}
                 >
                   {item.emoji}
                 </span>
@@ -907,79 +773,36 @@ function RightSidebar() {
         </div>
       </div>
 
-      {/* Pending Tasks */}
       <div className="mb-8">
         <h3 className="font-semibold text-gray-900 mb-4">📝 Tasks to be done</h3>
         <div className="bg-white border-2 border-purple-200 rounded-xl p-4 space-y-3">
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              className="rounded text-green-600 focus:ring-green-500"
-              checked={completedTasks.task1 || false}
-              onChange={() => handleTaskToggle('task1')}
-            />
-            <span className={`text-sm ${completedTasks.task1 ? 'text-green-600 line-through' : 'text-gray-700'}`}>
-              Complete Math Chapter 5 exercises
-            </span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              className="rounded text-green-600 focus:ring-green-500"
-              checked={completedTasks.task2 || false}
-              onChange={() => handleTaskToggle('task2')}
-            />
-            <span className={`text-sm ${completedTasks.task2 ? 'text-green-600 line-through' : 'text-gray-700'}`}>
-              Science project submission
-            </span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              className="rounded text-green-600 focus:ring-green-500"
-              checked={completedTasks.task3 || false}
-              onChange={() => handleTaskToggle('task3')}
-            />
-            <span className={`text-sm ${completedTasks.task3 ? 'text-green-600 line-through' : 'text-gray-700'}`}>
-              English essay writing
-            </span>
-          </div>
+          {[
+            { id: 'task1', text: 'Complete Math Chapter 5 exercises' },
+            { id: 'task2', text: 'Science project submission' },
+            { id: 'task3', text: 'English essay writing' }
+          ].map(task => (
+            <div key={task.id} className="flex items-center space-x-3">
+              <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" checked={completedTasks[task.id] || false} onChange={() => handleTaskToggle(task.id)} />
+              <span className={`text-sm ${completedTasks[task.id] ? 'text-green-600 line-through' : 'text-gray-700'}`}>{task.text}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Recent Activity */}
       <div>
-        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-primary rounded-full"></span>
-          Recent Activity
-        </h3>
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><span className="w-2 h-2 bg-primary rounded-full"></span>Recent Activity</h3>
         <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-sm">
           <div className="flex items-center space-x-3 p-3 bg-green-50/50 rounded-xl border border-green-100">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-green-600 text-sm font-bold">✓</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">Completed Math Quiz</p>
-              <p className="text-xs text-gray-500 font-medium">2 hours ago</p>
-            </div>
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-green-600 text-sm font-bold">✓</span></div>
+            <div className="flex-1"><p className="text-sm font-bold text-gray-900">Completed Math Quiz</p><p className="text-xs text-gray-500 font-medium">2 hours ago</p></div>
           </div>
           <div className="flex items-center space-x-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-blue-600 text-sm font-bold">💬</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">ChatBuddy session</p>
-              <p className="text-xs text-gray-500 font-medium">Yesterday</p>
-            </div>
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-blue-600 text-sm font-bold">💬</span></div>
+            <div className="flex-1"><p className="text-sm font-bold text-gray-900">ChatBuddy session</p><p className="text-xs text-gray-500 font-medium">Yesterday</p></div>
           </div>
           <div className="flex items-center space-x-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-primary text-sm font-bold">📝</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-900">Feelings Explorer</p>
-              <p className="text-xs text-gray-500 font-medium">2 days ago</p>
-            </div>
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0"><span className="text-primary text-sm font-bold">📝</span></div>
+            <div className="flex-1"><p className="text-sm font-bold text-gray-900">Feelings Explorer</p><p className="text-xs text-gray-500 font-medium">2 days ago</p></div>
           </div>
         </div>
       </div>

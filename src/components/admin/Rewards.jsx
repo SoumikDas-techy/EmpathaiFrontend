@@ -81,6 +81,32 @@ function ImageUploadField({ label, previewUrl, onFileChange }) {
 // ── Trigger type config ───────────────────────────────────────────────────────
 const TRIGGER_TYPES = [
   {
+    id: 'login',
+    label: 'Login Milestone',
+    icon: SparklesIcon,
+    color: 'text-blue-500',
+    badgeColor: 'bg-blue-50 text-blue-600',
+    borderActive: 'border-blue-400 bg-blue-50 text-blue-700',
+    placeholder: 'e.g. First Login',
+    hasMilestone: true,
+    milestoneLabel: 'Login Count Milestone',
+    milestoneHint: 'Badge is awarded when student reaches this exact login count. e.g. "1" for first login, "5" for fifth.',
+    milestoneOptions: ['1', '2', '5', '10', '25', '50', '100'],
+  },
+  {
+    id: 'intervention',
+    label: 'Wellbeing Session',
+    icon: HeartIcon,
+    color: 'text-green-500',
+    badgeColor: 'bg-green-50 text-green-600',
+    borderActive: 'border-green-400 bg-green-50 text-green-700',
+    placeholder: 'e.g. First Wellbeing Session',
+    hasMilestone: true,
+    milestoneLabel: 'Session Count Milestone',
+    milestoneHint: 'Badge is awarded when student completes this many wellbeing sessions. e.g. "1", "3", "5", "10".',
+    milestoneOptions: ['1', '3', '5', '10'],
+  },
+  {
     id: 'activity',
     label: 'Activity',
     icon: SparklesIcon,
@@ -88,6 +114,7 @@ const TRIGGER_TYPES = [
     badgeColor: 'bg-orange-50 text-orange-600',
     borderActive: 'border-orange-400 bg-orange-50 text-orange-700',
     placeholder: 'e.g. Emotion Charades',
+    hasMilestone: false,
   },
   {
     id: 'feelings_explorer',
@@ -97,6 +124,7 @@ const TRIGGER_TYPES = [
     badgeColor: 'bg-pink-50 text-pink-600',
     borderActive: 'border-pink-400 bg-pink-50 text-pink-700',
     placeholder: 'e.g. Identify Joy',
+    hasMilestone: false,
   },
 ]
 
@@ -109,7 +137,8 @@ function BadgesTab() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ title: '', triggerType: 'activity', triggerTitle: '' })
+  // FIX: form now includes triggerValue — the numeric milestone string for login/intervention badges
+  const [form, setForm] = useState({ title: '', triggerType: 'login', triggerTitle: '', triggerValue: '' })
   const [imageFile, setImageFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [errors, setErrors] = useState({})
@@ -137,7 +166,7 @@ function BadgesTab() {
 
   const openAdd = () => {
     setEditing(null)
-    setForm({ title: '', triggerType: 'activity', triggerTitle: '' })
+    setForm({ title: '', triggerType: 'login', triggerTitle: '', triggerValue: '' })
     setImageFile(null)
     setPreviewUrl(null)
     setErrors({})
@@ -146,7 +175,12 @@ function BadgesTab() {
 
   const openEdit = (badge) => {
     setEditing(badge)
-    setForm({ title: badge.title, triggerType: badge.triggerType, triggerTitle: badge.triggerTitle })
+    setForm({
+      title: badge.title,
+      triggerType: badge.triggerType,
+      triggerTitle: badge.triggerTitle,
+      triggerValue: badge.triggerValue || '',
+    })
     setImageFile(null)
     setPreviewUrl(toDataUrl(badge.imageBase64, badge.imageType))
     setErrors({})
@@ -162,10 +196,16 @@ function BadgesTab() {
     }
   }
 
+  const activeCfgForValidation = TRIGGER_TYPES.find(t => t.id === form.triggerType) || TRIGGER_TYPES[0]
+
   const validate = () => {
     const e = {}
     if (!form.title.trim()) e.title = 'Badge title is required'
-    if (!form.triggerTitle.trim()) e.triggerTitle = 'Please specify the activity or feelings explorer title'
+    if (!form.triggerTitle.trim()) e.triggerTitle = 'Please enter a label for this trigger'
+    // FIX: require triggerValue for milestone-based badge types
+    if (activeCfgForValidation.hasMilestone && !form.triggerValue.trim()) {
+      e.triggerValue = 'Please select or enter the milestone number'
+    }
     return e
   }
 
@@ -175,6 +215,7 @@ function BadgesTab() {
     setSaving(true)
     try {
       if (editing) {
+        // FIX: pass triggerValue through — was previously undefined/missing
         const updated = await updateBadge(editing.id, { ...form, imageFile })
         setBadges(prev => prev.map(b => b.id === editing.id ? updated : b))
         setToast('Badge updated successfully!')
@@ -203,7 +244,7 @@ function BadgesTab() {
   }
 
   const getTriggerConfig = (triggerType) =>
-    TRIGGER_TYPES.find(t => t.id === triggerType) || TRIGGER_TYPES[0]
+    TRIGGER_TYPES.find(t => t.id === triggerType) || TRIGGER_TYPES[2] // default to 'activity'
 
   return (
     <div>
@@ -213,7 +254,7 @@ function BadgesTab() {
         <div>
           <h3 className="text-base font-semibold text-gray-800">Badges</h3>
           <p className="text-sm text-gray-500 mt-0.5">
-            Automatically awarded when a student completes a linked activity or feelings explorer session.
+            Automatically awarded when a student hits a login/session milestone or completes a linked activity.
           </p>
         </div>
         <button onClick={openAdd}
@@ -257,9 +298,13 @@ function BadgesTab() {
                   <div className="flex items-center gap-1 mt-1.5">
                     <IconComp className={`w-3.5 h-3.5 flex-shrink-0 ${cfg.color}`} />
                     <span className="text-xs text-gray-500 truncate">{badge.triggerTitle}</span>
+                    {/* FIX: show triggerValue milestone number if present */}
+                    {badge.triggerValue && (
+                      <span className="ml-1 text-xs font-bold text-gray-400">#{badge.triggerValue}</span>
+                    )}
                   </div>
                   <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badgeColor}`}>
-                    On {cfg.label} Completion
+                    {cfg.label}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -292,21 +337,21 @@ function BadgesTab() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Badge Title *</label>
                   <input type="text" value={form.title}
                     onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Emotion Spotter" className={inputCls} />
+                    placeholder="e.g. First Steps" className={inputCls} />
                   <FieldError msg={errors.title} />
                 </div>
 
                 <ImageUploadField label="Badge Image" previewUrl={previewUrl} onFileChange={handleFileChange} />
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Trigger On *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Trigger Type *</label>
                   <div className="grid grid-cols-2 gap-2">
                     {TRIGGER_TYPES.map(type => {
                       const IconComp = type.icon
                       const isActive = form.triggerType === type.id
                       return (
                         <button key={type.id} type="button"
-                          onClick={() => setForm(f => ({ ...f, triggerType: type.id, triggerTitle: '' }))}
+                          onClick={() => setForm(f => ({ ...f, triggerType: type.id, triggerTitle: '', triggerValue: '' }))}
                           className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                             isActive
                               ? type.borderActive
@@ -319,9 +364,44 @@ function BadgesTab() {
                   </div>
                 </div>
 
+                {/* FIX: Milestone number field — only shown for login/intervention trigger types */}
+                {activeCfg.hasMilestone && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {activeCfg.milestoneLabel} *
+                    </label>
+                    <div className="flex gap-2 flex-wrap mb-2">
+                      {activeCfg.milestoneOptions.map(opt => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, triggerValue: opt }))}
+                          className={`px-3 py-1.5 rounded-lg border text-sm font-bold transition-colors ${
+                            form.triggerValue === opt
+                              ? 'border-purple-500 bg-purple-50 text-purple-700'
+                              : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.triggerValue}
+                      onChange={e => setForm(f => ({ ...f, triggerValue: e.target.value }))}
+                      placeholder="Or type a custom number..."
+                      className={inputCls}
+                    />
+                    <FieldError msg={errors.triggerValue} />
+                    <p className="mt-1 text-xs text-gray-400">{activeCfg.milestoneHint}</p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {activeCfg.label} Title *
+                    Display Label *
                   </label>
                   <input type="text" value={form.triggerTitle}
                     onChange={e => setForm(f => ({ ...f, triggerTitle: e.target.value }))}
@@ -329,7 +409,7 @@ function BadgesTab() {
                     className={inputCls} />
                   <FieldError msg={errors.triggerTitle} />
                   <p className="mt-1 text-xs text-gray-400">
-                    This badge is awarded automatically when the student completes this {activeCfg.label.toLowerCase()}.
+                    Human-readable label shown on the badge card (e.g. "First Login", "5th Session").
                   </p>
                 </div>
               </div>
@@ -353,7 +433,7 @@ function BadgesTab() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MAIN REWARDS COMPONENT  (Achievements tab hidden)
+// MAIN REWARDS COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Rewards() {
   return (
