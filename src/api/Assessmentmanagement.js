@@ -4,7 +4,7 @@
 //  localStorage under "access_token" or "token".
 // ============================================================
 
-const BASE = 'http://localhost:8080/api'
+const BASE = '/api'
 
 /* ── Auth helper ──────────────────────────────────────────── */
 function getAuthHeaders () {

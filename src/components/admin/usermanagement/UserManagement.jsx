@@ -671,19 +671,16 @@ export default function UserManagement({ user }) {
                         /* Student table with expandable rows */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
     <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-            <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Phone</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Login Count</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intervention</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Spent</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
+       <thead className="bg-gray-50">
+    <tr>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Name</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Email</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Class</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Section</th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Parent Phone</th>
+        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Actions</th>
+    </tr>
+</thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {filteredUsers
                                         .filter(u => {
@@ -695,66 +692,54 @@ export default function UserManagement({ user }) {
                                             return (
                                                 <React.Fragment key={u.id}>
                                                     <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleRow(u.id)}>
-                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                                            <div className="flex items-center gap-2">
-                                                                {expandedRow === u.id
-                                                                    ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                                                    : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                                }
-                                                                {u.name}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                                {formatClassName(u.class || u.className || 'No Class')}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                {full.section ? `Section ${full.section}` : '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {full.parentEmail
-                                                                ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                                    <PhoneIcon className="w-3 h-3" />{full.parentEmail}
-                                                                </span>
-                                                                : <span className="text-gray-300">—</span>
-                                                            }
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {full.loginCount != null
-                                                                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{full.loginCount}</span>
-                                                                : <span className="text-gray-300">—</span>
-                                                            }
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {full.intervention
-                                                                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{full.intervention}</span>
-                                                                : <span className="text-gray-300">—</span>
-                                                            }
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {full.timeSpent != null
-                                                                ? <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{formatTimeSpent(full.timeSpent)}</span>
-                                                                : <span className="text-gray-300">—</span>
-                                                            }
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
-                                                            <div className="flex items-center justify-center gap-3">
-                                                                <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
-                                                                    <PencilIcon className="w-5 h-5" />
-                                                                </button>
-                                                                <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
-                                                                    <TrashIcon className="w-5 h-5" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
+    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+        <div className="flex items-center gap-2">
+            {expandedRow === u.id
+                ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+            {u.name}
+        </div>
+    </td>
+    <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+    <td className="px-6 py-4 text-sm text-gray-500">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+            {formatClassName(u.class || u.className || 'No Class')}
+        </span>
+    </td>
+    <td className="px-6 py-4 text-sm text-gray-500">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            {full.section ? `Section ${full.section}` : '—'}
+        </span>
+    </td>
+    <td className="px-6 py-4 text-sm text-gray-500">
+        {full.parentEmail
+            ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                <PhoneIcon className="w-3 h-3" />{full.parentEmail}
+              </span>
+            : <span className="text-gray-300">—</span>}
+    </td>
+    <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-center gap-2">
+            <button
+                onClick={() => toggleRow(u.id)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 rounded-full hover:bg-purple-100 transition-colors"
+            >
+                Details {expandedRow === u.id
+                    ? <ChevronDownIcon className="w-3 h-3" />
+                    : <ChevronRightIcon className="w-3 h-3" />}
+            </button>
+            <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
+                <PencilIcon className="w-5 h-5" />
+            </button>
+            <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
+                <TrashIcon className="w-5 h-5" />
+            </button>
+        </div>
+    </td>
+</tr>
                                                     {expandedRow === u.id && (
                                                         <tr className="bg-gray-50">
-                                                            <td colSpan={9} className="px-8 py-4">
+                                                            <td colSpan={6} className="px-8 py-4">
                                                                 {(() => {
                                                                     const full = expandedUserData[u.id] || u
                                                                     return (
@@ -789,7 +774,7 @@ export default function UserManagement({ user }) {
                                         return formatClassName(rawClass) === selectedClass
                                     }).length === 0 && (
                                         <tr>
-                                            <td colSpan={9} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                            <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
                                         </tr>
                                     )}
                                 </tbody>
