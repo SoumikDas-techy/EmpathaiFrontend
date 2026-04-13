@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Header from './components/pagelayout/Header'
 import Hero from './components/pagelayout/Hero'
 import WhyEmpathAI from './components/WhyEmpathAI'
@@ -9,6 +9,7 @@ import LoginModal from './components/LoginModal'
 import AdminPanel from './components/admin/AdminPanel'
 import { getCurrentUser, logout as authLogout, isAdminRole } from './api/authApi.js'
 import { clearTokens } from './api/apiClient.js'
+import { updateTimeSpent } from './api/usermanagementapi.js'
 
 // Backend role enums that should route to the admin panel
 const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN']
@@ -18,21 +19,106 @@ function isAdmin(user) {
   return ADMIN_ROLES.includes(user.role)
 }
 
+// Sync time to backend every 60 seconds
+const SYNC_INTERVAL_MS = 60 * 1000
+
 function App() {
   const [currentPage, setCurrentPage] = useState('home')
   const [user, setUser] = useState(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
 
+  // ── Time tracking refs ─────────────────────────────────────────────────────
+  const lastSyncedRef = useRef(null)       // timestamp of last sync
+  const syncIntervalRef = useRef(null)     // setInterval reference
+  const currentUserRef = useRef(null)      // always up-to-date user ref
+
+  // Keep currentUserRef in sync with user state
   useEffect(() => {
-    // Restore authenticated session from localStorage
+    currentUserRef.current = user
+  }, [user])
+
+  // ── Send elapsed time to backend ──────────────────────────────────────────
+  const syncTimeSpent = async () => {
+    const currentUser = currentUserRef.current
+    if (!currentUser || isAdmin(currentUser)) return
+    if (!lastSyncedRef.current) return
+
+    const now = Date.now()
+    const elapsedSeconds = Math.floor((now - lastSyncedRef.current) / 1000)
+    lastSyncedRef.current = now
+
+    if (elapsedSeconds > 0) {
+      try {
+        await updateTimeSpent(currentUser.id, elapsedSeconds)
+      } catch (err) {
+        console.error('Failed to sync time spent:', err.message)
+      }
+    }
+  }
+
+  // ── Start time tracking ───────────────────────────────────────────────────
+  const startTimeTracking = (userData) => {
+    if (!userData || isAdmin(userData)) return
+
+    lastSyncedRef.current = Date.now()
+
+    // Clear any existing interval first
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current)
+    }
+
+    // Sync every 60 seconds
+    syncIntervalRef.current = setInterval(() => {
+      syncTimeSpent()
+    }, SYNC_INTERVAL_MS)
+  }
+
+  // ── Stop time tracking and send final time ────────────────────────────────
+  const stopTimeTracking = async () => {
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current)
+      syncIntervalRef.current = null
+    }
+
+    // Send remaining unsent time
+    await syncTimeSpent()
+
+    lastSyncedRef.current = null
+  }
+
+  // ── Handle tab close / page unload ───────────────────────────────────────
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const currentUser = currentUserRef.current
+      if (!currentUser || isAdmin(currentUser)) return
+      if (!lastSyncedRef.current) return
+
+      const elapsedSeconds = Math.floor((Date.now() - lastSyncedRef.current) / 1000)
+      if (elapsedSeconds > 0) {
+        // sendBeacon is reliable on page close unlike fetch
+        const blob = new Blob(
+          [JSON.stringify({ seconds: elapsedSeconds })],
+          { type: 'application/json' }
+        )
+        navigator.sendBeacon(`/api/users/${currentUser.id}/time-spent`, blob)
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  // ── Restore session on page load ──────────────────────────────────────────
+  useEffect(() => {
     const savedUser = getCurrentUser()
     if (savedUser) {
       setUser(savedUser)
       setCurrentPage(isAdmin(savedUser) ? 'admin' : 'dashboard')
+      startTimeTracking(savedUser)
     }
 
-    // Listen for session expiry events emitted by apiClient
     const handleAuthLogout = () => {
+      stopTimeTracking()
       setUser(null)
       setCurrentPage('home')
     }
@@ -53,13 +139,12 @@ function App() {
       observer.disconnect()
       window.removeEventListener('auth:logout', handleAuthLogout)
     }
-  }, [currentPage])
+  }, [])
 
   const navigateToAuth = () => {
     setShowLoginModal(true)
   }
 
-  // Legacy mock auth route — redirect to real login modal instead
   if (currentPage === 'auth') {
     setCurrentPage('home')
     setShowLoginModal(true)
@@ -70,6 +155,9 @@ function App() {
     localStorage.setItem('user', JSON.stringify(userData))
     setCurrentPage(isAdmin(userData) ? 'admin' : 'dashboard')
     setShowLoginModal(false)
+
+    // Start tracking time when student logs in
+    startTimeTracking(userData)
   }
 
   const navigateToHome = () => {
@@ -82,8 +170,11 @@ function App() {
     setCurrentPage(isAdmin(userData) ? 'admin' : 'dashboard')
   }
 
-  const handleLogout = () => {
-    authLogout()         // clears tokens
+  const handleLogout = async () => {
+    // Stop tracking and send final time before logout
+    await stopTimeTracking()
+
+    authLogout()
     clearTokens()
     setUser(null)
     setCurrentPage('home')

@@ -12,8 +12,8 @@ import {
     getSchools, createSchool, deleteSchool, getUserById
 } from '../../../api/usermanagementapi.js'
 
-
 import TeacherTab from './Teachertab.jsx'
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TAB_ROLE_MAP = {
@@ -104,8 +104,8 @@ export default function UserManagement({ user }) {
         timeSpent: 0,
     })
 
+    // ── Fetch users from backend ──────────────────────────────────────────────
     const loadUsers = useCallback(async () => {
-        // Teacher tab is fully self-contained inside <TeacherTab />, skip here
         if (activeTab === 'teacher') return
 
         setLoading(true)
@@ -123,7 +123,7 @@ export default function UserManagement({ user }) {
                 }))
                 setUsers(studentList)
 
-                // Pre-fetch full details so Section & Parent Phone show in the table immediately
+                // Pre-fetch full details from backend for all students
                 const fullDetails = await Promise.all(
                     studentList.map(u => getUserById(u.id).catch(() => null))
                 )
@@ -132,6 +132,7 @@ export default function UserManagement({ user }) {
                     if (full) detailsMap[full.id] = full
                 })
                 setExpandedUserData(prev => ({ ...prev, ...detailsMap }))
+
             } else if (activeTab === 'school_admin') {
                 result = await getSchoolAdmins(opts)
                 setUsers((result.content || []).map(u => ({ ...u, role: 'school_admin' })))
@@ -186,6 +187,7 @@ export default function UserManagement({ user }) {
             let fullUser = userToEdit
             if (userToEdit.id && activeTab !== 'schools') {
                 try {
+                    // Fetch full user details from backend
                     fullUser = await getUserById(userToEdit.id)
                 } catch (err) {
                     console.error('Failed to fetch user details', err)
@@ -331,14 +333,14 @@ export default function UserManagement({ user }) {
             setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`)
             const savedUser = localStorage.getItem('user')
             const currentUser = savedUser ? JSON.parse(savedUser) : null
-           if (editingUser && currentUser && currentUser.id === editingUser.id) {
-    localStorage.setItem('user', JSON.stringify({
-        ...currentUser,
-        age: formData.dateOfBirth ? calculateAgeFromDOB(formData.dateOfBirth) : (currentUser.age || null),
-        dateOfBirth: formData.dateOfBirth || null,
-        gender: formData.gender || currentUser.gender || null,  // ← always persist gender
-    }))
-}
+            if (editingUser && currentUser && currentUser.id === editingUser.id) {
+                localStorage.setItem('user', JSON.stringify({
+                    ...currentUser,
+                    age: formData.dateOfBirth ? calculateAgeFromDOB(formData.dateOfBirth) : (currentUser.age || null),
+                    dateOfBirth: formData.dateOfBirth || null,
+                    gender: formData.gender || currentUser.gender || null,
+                }))
+            }
             setTimeout(() => setSuccessMessage(null), 3000)
             await loadUsers()
         } catch (err) {
@@ -375,6 +377,7 @@ export default function UserManagement({ user }) {
         }
     }
 
+    // Fetch full student data from backend when row is expanded
     const toggleRow = async (userId) => {
         if (expandedRow === userId) {
             setExpandedRow(null)
@@ -434,42 +437,40 @@ export default function UserManagement({ user }) {
             )
         })
 
-    // ── UPDATED: roles array now includes Teachers, visible to SCHOOL_ADMIN too ──
     const roles = [
-        { id: 'student',       label: 'Students' },
-        { id: 'school_admin',  label: 'School Admin' },
-        { id: 'psychologist',  label: 'Psychologists' },
+        { id: 'student', label: 'Students' },
+        { id: 'school_admin', label: 'School Admin' },
+        { id: 'psychologist', label: 'Psychologists' },
         { id: 'content_admin', label: 'Content Admins' },
-        { id: 'schools',       label: 'Schools' },
-        { id: 'teacher',       label: 'Teachers' },   // ← NEW
+        { id: 'schools', label: 'Schools' },
+        { id: 'teacher', label: 'Teachers' },
     ].filter(r => {
         if (user?.role === 'SUPER_ADMIN') return true
-        if (user?.role === 'SCHOOL_ADMIN') return r.id === 'student' || r.id === 'teacher'  // ← updated
+        if (user?.role === 'SCHOOL_ADMIN') return r.id === 'student' || r.id === 'teacher'
         return false
     })
-    // ─────────────────────────────────────────────────────────────────────────────
 
     const addButtonLabels = {
-        student:       "Add Students",
-        school_admin:  "Add School Admins",
-        psychologist:  "Add Psychologists",
+        student: "Add Students",
+        school_admin: "Add School Admins",
+        psychologist: "Add Psychologists",
         content_admin: "Add Content Admins",
-        schools:       "Add School",
-        teacher:       "Add Teacher",   // ← NEW
+        schools: "Add School",
+        teacher: "Add Teacher",
     }
 
     const roleTitles = {
-        student:       "Student",
-        school_admin:  "School Admin",
-        psychologist:  "Psychologist",
+        student: "Student",
+        school_admin: "School Admin",
+        psychologist: "Psychologist",
         content_admin: "Content Admin",
-        schools:       "School",
-        teacher:       "Teacher",   // ← NEW
+        schools: "School",
+        teacher: "Teacher",
     }
 
     return (
         <div className="relative">
-            {/* Notifications */}
+            {/* Success Notification */}
             {successMessage && (
                 <div className="fixed top-4 right-4 z-[60] animate-fade-in-down">
                     <div className="bg-green-50 border-l-4 border-green-400 p-4 shadow-lg rounded-md">
@@ -494,6 +495,7 @@ export default function UserManagement({ user }) {
                 </div>
             )}
 
+            {/* Error Notification */}
             {apiError && (
                 <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
                     <div className="flex">
@@ -518,11 +520,10 @@ export default function UserManagement({ user }) {
                                 setSelectedClass(null)
                                 setSearchTerm('')
                             }}
-                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                                activeTab === role.id
-                                    ? 'border-purple-600 text-purple-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === role.id
+                                ? 'border-purple-600 text-purple-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
                         >
                             {role.label}
                         </button>
@@ -530,12 +531,12 @@ export default function UserManagement({ user }) {
                 </nav>
             </div>
 
-            {/* ── TEACHER TAB — fully self-contained, renders here and returns early ── */}
+            {/* Teacher Tab */}
             {activeTab === 'teacher' ? (
                 <TeacherTab user={user} schoolsData={schoolsData} />
             ) : (
                 <>
-                    {/* Action Bar — only shown for non-teacher tabs */}
+                    {/* Action Bar */}
                     <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-3">
                             {selectedSchool && activeTab === 'student' && (
@@ -575,9 +576,8 @@ export default function UserManagement({ user }) {
                         />
                     </div>
 
-                    {/* ── VIEWS ── */}
+                    {/* ── School Cards View ── */}
                     {activeTab === 'student' && !selectedSchool ? (
-                        /* School cards */
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {(() => {
                                 const schoolsMap = {}
@@ -605,7 +605,7 @@ export default function UserManagement({ user }) {
                         </div>
 
                     ) : activeTab === 'student' && selectedSchool && !selectedClass ? (
-                        /* Class cards */
+                        /* ── Class Cards View ── */
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                             {(() => {
                                 const classesMap = {}
@@ -635,7 +635,7 @@ export default function UserManagement({ user }) {
                         </div>
 
                     ) : activeTab === 'schools' ? (
-                        /* Schools table */
+                        /* ── Schools Table ── */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -668,19 +668,19 @@ export default function UserManagement({ user }) {
                         </div>
 
                     ) : activeTab === 'student' && selectedSchool && selectedClass ? (
-                        /* Student table with expandable rows */
+                        /* ── Student Table with Expandable Rows ── */
                         <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
-    <table className="min-w-full divide-y divide-gray-200">
-       <thead className="bg-gray-50">
-    <tr>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Name</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Email</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Class</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Section</th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Parent Phone</th>
-        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Actions</th>
-    </tr>
-</thead>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-36">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Email</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Class</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Section</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Parent Phone</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Actions</th>
+                                    </tr>
+                                </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {filteredUsers
                                         .filter(u => {
@@ -692,73 +692,95 @@ export default function UserManagement({ user }) {
                                             return (
                                                 <React.Fragment key={u.id}>
                                                     <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleRow(u.id)}>
-    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-        <div className="flex items-center gap-2">
-            {expandedRow === u.id
-                ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-            {u.name}
-        </div>
-    </td>
-    <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
-    <td className="px-6 py-4 text-sm text-gray-500">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            {formatClassName(u.class || u.className || 'No Class')}
-        </span>
-    </td>
-    <td className="px-6 py-4 text-sm text-gray-500">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {full.section ? `Section ${full.section}` : '—'}
-        </span>
-    </td>
-    <td className="px-6 py-4 text-sm text-gray-500">
-        {full.parentEmail
-            ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                <PhoneIcon className="w-3 h-3" />{full.parentEmail}
-              </span>
-            : <span className="text-gray-300">—</span>}
-    </td>
-    <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-center gap-2">
-            <button
-                onClick={() => toggleRow(u.id)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 rounded-full hover:bg-purple-100 transition-colors"
-            >
-                Details {expandedRow === u.id
-                    ? <ChevronDownIcon className="w-3 h-3" />
-                    : <ChevronRightIcon className="w-3 h-3" />}
-            </button>
-            <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
-                <PencilIcon className="w-5 h-5" />
-            </button>
-            <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
-                <TrashIcon className="w-5 h-5" />
-            </button>
-        </div>
-    </td>
-</tr>
+                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                            <div className="flex items-center gap-2">
+                                                                {expandedRow === u.id
+                                                                    ? <ChevronDownIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                                    : <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                                                                {u.name}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                {formatClassName(u.class || u.className || 'No Class')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                {full.section ? `Section ${full.section}` : '—'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            {full.parentEmail
+                                                                ? <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                                    <PhoneIcon className="w-3 h-3" />{full.parentEmail}
+                                                                </span>
+                                                                : <span className="text-gray-300">—</span>}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-center" onClick={e => e.stopPropagation()}>
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button
+                                                                    onClick={() => toggleRow(u.id)}
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 rounded-full hover:bg-purple-100 transition-colors"
+                                                                >
+                                                                    Details {expandedRow === u.id
+                                                                        ? <ChevronDownIcon className="w-3 h-3" />
+                                                                        : <ChevronRightIcon className="w-3 h-3" />}
+                                                                </button>
+                                                                <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800" title="Edit">
+                                                                    <PencilIcon className="w-5 h-5" />
+                                                                </button>
+                                                                <button onClick={() => handleDeleteUser(u)} className="text-red-500 hover:text-red-700" title="Delete">
+                                                                    <TrashIcon className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                    {/* ── Expanded Row — data fetched from backend ── */}
                                                     {expandedRow === u.id && (
                                                         <tr className="bg-gray-50">
                                                             <td colSpan={6} className="px-8 py-4">
                                                                 {(() => {
                                                                     const full = expandedUserData[u.id] || u
                                                                     return (
-                                                                        <div className="grid grid-cols-2 gap-4">
+                                                                        <div className="grid grid-cols-3 gap-4">
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
                                                                                 <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
                                                                             </div>
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Date of Birth</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.dateOfBirth || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.gender || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Parent Name</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.parentName || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.loginCount ?? '—'}</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.loginCount ?? 0}</p>
                                                                             </div>
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.intervention || '—'}</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.interventionSessionCount ?? 0}</p>
                                                                             </div>
                                                                             <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                                                                 <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
-                                                                                <p className="text-sm font-semibold text-gray-800">{full.timeSpent != null ? formatTimeSpent(full.timeSpent) : '—'}</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(full.timeSpent)}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Age</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.age ? `${full.age} yrs` : '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Age</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{full.age ? `${full.age} yrs` : '—'}</p>
                                                                             </div>
                                                                         </div>
                                                                     )
@@ -773,17 +795,17 @@ export default function UserManagement({ user }) {
                                         const rawClass = u.class || u.className || 'No Class'
                                         return formatClassName(rawClass) === selectedClass
                                     }).length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
-                                        </tr>
-                                    )}
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                            </tr>
+                                        )}
                                 </tbody>
                             </table>
                         </div>
 
                     ) : (
-                        /* Generic table for school_admin / psychologist / content_admin */
-                       <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
+                        /* ── Generic Table for school_admin / psychologist / content_admin ── */
+                        <div className="shadow overflow-x-auto border-b border-gray-200 sm:rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
@@ -810,7 +832,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* ── CREATE / EDIT MODAL ── */}
+                    {/* ── Create / Edit Modal ── */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 overflow-y-auto">
                             <div className="flex items-center justify-center min-h-screen px-4">
@@ -818,7 +840,6 @@ export default function UserManagement({ user }) {
                                 <div className="bg-white rounded-lg p-6 z-10 w-full max-w-2xl">
                                     <h3 className="text-lg font-bold mb-4">{editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}</h3>
                                     <div className="space-y-4">
-
                                         <div>
                                             <label className="block text-sm font-medium">Name</label>
                                             <input
@@ -834,8 +855,7 @@ export default function UserManagement({ user }) {
                                             <>
                                                 <div>
                                                     <label className="block text-sm font-medium">Physical Address</label>
-                                                    <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.address ? 'border-red-500' : 'border-gray-300'}`} />
-                                                    {validationErrors.address && <p className="text-red-500 text-xs mt-1">{validationErrors.address}</p>}
+                                                    <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
@@ -851,8 +871,7 @@ export default function UserManagement({ user }) {
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium">Phone Number</label>
-                                                    <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`} />
-                                                    {validationErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.phoneNumber}</p>}
+                                                    <input type="text" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
                                                 </div>
                                             </>
                                         ) : activeTab === 'student' ? (
@@ -898,11 +917,7 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Gender</label>
-                                                        <select
-                                                            value={formData.gender}
-                                                            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                                        >
+                                                        <select value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2">
                                                             <option value="">Select Gender</option>
                                                             <option value="Male">Male</option>
                                                             <option value="Female">Female</option>
@@ -964,16 +979,6 @@ export default function UserManagement({ user }) {
                                                         />
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium">Intervention</label>
-                                                    <input
-                                                        type="text"
-                                                        value={formData.intervention}
-                                                        onChange={(e) => setFormData({ ...formData, intervention: e.target.value })}
-                                                        placeholder="e.g. Counselling, CBT, Group session"
-                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                                    />
-                                                </div>
                                             </>
                                         ) : (
                                             <>
@@ -1021,7 +1026,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* Delete Modal */}
+                    {/* ── Delete Modal ── */}
                     {isDeleteModalOpen && (
                         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)}></div>
