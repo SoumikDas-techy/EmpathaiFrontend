@@ -11,7 +11,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { fetchMyBadges } from '../../../api/rewardsApi'
-import { getGoals, saveGoal, deleteGoal } from '../../../api/activitiesApi.js'
+import { getGoals, saveGoal, deleteGoal, completeIntervention } from '../../../api/activitiesApi.js'
 
 const SUBJECTS = ['Mathematics', 'Science', 'SST', 'English', 'Hindi', 'Art & Craft', 'Physical Education', 'Computer Science', 'Other']
 
@@ -23,19 +23,13 @@ export default function Activities({ user }) {
 
   useEffect(() => {
     const loadBadges = async () => {
-      if (!user?.id) {
-        console.warn('Activities: user.id is missing, skipping badge fetch')
-        return
-      }
-      console.log('Activities: fetching badges for user.id =', user.id)
+      if (!user?.id) return
       setBadgesLoading(true)
       setBadgesError('')
       try {
         const data = await fetchMyBadges()
-        console.log('Activities: badges received =', data)
         setBadges(Array.isArray(data) ? data : [])
       } catch (err) {
-        console.error('Activities: badge fetch error =', err.message)
         setBadgesError(err.message || 'Failed to load rewards')
       } finally {
         setBadgesLoading(false)
@@ -121,18 +115,20 @@ export default function Activities({ user }) {
         {tools.map((tool, index) => (
           <div
             key={index}
-            className={`bg-gradient-to-br ${tool.bgColor} border-2 border-purple-200 rounded-xl p-6 hover:border-purple-300 transition-colors text-center`}
+            className={'bg-gradient-to-br ' + tool.bgColor + ' border-2 border-purple-200 rounded-xl p-6 hover:border-purple-300 transition-colors text-center'}
           >
             <div className="flex justify-center mb-4">
-              <div className={`w-16 h-16 bg-${tool.color}-100 rounded-full flex items-center justify-center`}>
-                <tool.icon className={`w-8 h-8 text-${tool.color}-600`} />
+              <div className={'w-16 h-16 bg-' + tool.color + '-100 rounded-full flex items-center justify-center'}>
+                <tool.icon className={'w-8 h-8 text-' + tool.color + '-600'} />
               </div>
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">{tool.name}</h3>
             <p className="text-gray-700 text-sm mb-4">{tool.description}</p>
             {tool.id === 'rewards' && (
               <p className="text-xs text-yellow-700 mb-2 font-medium">
-                {badgesLoading ? 'Loading...' : `${badges.length} badge${badges.length !== 1 ? 's' : ''} earned`}
+                {badgesLoading
+                  ? 'Loading...'
+                  : badges.length + ' badge' + (badges.length !== 1 ? 's' : '') + ' earned'}
               </p>
             )}
             <button
@@ -154,10 +150,10 @@ export default function Activities({ user }) {
             >
               &times;
             </button>
-            {activeTool === 'meditation' && <MeditationTimer />}
-            {activeTool === 'mood' && <MoodTracker />}
-            {activeTool === 'gratitude' && <GratitudeJournal />}
-            {activeTool === 'sleep' && <SleepTracker />}
+            {activeTool === 'meditation' && <MeditationTimer user={user} />}
+            {activeTool === 'mood' && <MoodTracker user={user} />}
+            {activeTool === 'gratitude' && <GratitudeJournal user={user} />}
+            {activeTool === 'sleep' && <SleepTracker user={user} />}
             {activeTool === 'goals' && <GoalSetting user={user} />}
             {activeTool === 'rewards' && (
               <RewardsViewer badges={badges} loading={badgesLoading} error={badgesError} />
@@ -170,35 +166,60 @@ export default function Activities({ user }) {
   )
 
   // ── Meditation Timer ───────────────────────────────────────────────────────
-  function MeditationTimer() {
+  function MeditationTimer({ user }) {
     const [duration, setDuration] = useState(5)
     const [isActive, setIsActive] = useState(false)
     const [timeLeft, setTimeLeft] = useState(duration * 60)
+    const [completed, setCompleted] = useState(false)
+    const [saving, setSaving] = useState(false)
 
     const startTimer = () => {
       setIsActive(true)
+      setCompleted(false)
       setTimeLeft(duration * 60)
+    }
+
+    useEffect(() => {
+      if (!isActive) return
       const interval = setInterval(() => {
         setTimeLeft(prev => {
-          if (prev <= 1) { setIsActive(false); clearInterval(interval); return 0 }
+          if (prev <= 1) {
+            setIsActive(false)
+            clearInterval(interval)
+            setCompleted(true)
+            setSaving(true)
+            completeIntervention(user?.id, 'meditation')
+              .then(() => console.log('Meditation intervention recorded'))
+              .catch(err => console.error('Failed to record meditation intervention:', err))
+              .finally(() => setSaving(false))
+            return 0
+          }
           return prev - 1
         })
       }, 1000)
-    }
+      return () => clearInterval(interval)
+    }, [isActive])
 
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60)
       const secs = seconds % 60
-      return `${mins}:${secs.toString().padStart(2, '0')}`
+      return mins + ':' + secs.toString().padStart(2, '0')
     }
 
     return (
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">🧘 Meditation Timer</h3>
-        {!isActive && (
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">Meditation Timer</h3>
+        {!isActive && !completed && (
           <div className="mb-6">
             <label className="block text-gray-700 mb-2">Select Duration:</label>
-            <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="border-2 border-purple-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500">
+            <select
+              value={duration}
+              onChange={(e) => {
+                setDuration(Number(e.target.value))
+                setTimeLeft(Number(e.target.value) * 60)
+              }}
+              className="border-2 border-purple-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
+            >
               <option value={5}>5 minutes</option>
               <option value={10}>10 minutes</option>
               <option value={15}>15 minutes</option>
@@ -208,11 +229,29 @@ export default function Activities({ user }) {
           </div>
         )}
         <div className="text-6xl font-bold text-purple-600 mb-6">{formatTime(timeLeft)}</div>
+        {completed && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-700 font-semibold">
+              {saving ? 'Recording session...' : 'Session complete! Wellness activity recorded.'}
+            </p>
+          </div>
+        )}
         <div className="space-x-4">
-          <button onClick={startTimer} disabled={isActive} className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50">
-            {isActive ? 'In Progress...' : 'Start Meditation'}
+          <button
+            onClick={startTimer}
+            disabled={isActive}
+            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
+          >
+            {isActive ? 'In Progress...' : completed ? 'Start Again' : 'Start Meditation'}
           </button>
-          <button onClick={() => { setIsActive(false); setTimeLeft(duration * 60) }} className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800">
+          <button
+            onClick={() => {
+              setIsActive(false)
+              setTimeLeft(duration * 60)
+              setCompleted(false)
+            }}
+            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800"
+          >
             Reset
           </button>
         </div>
@@ -221,10 +260,13 @@ export default function Activities({ user }) {
   }
 
   // ── Mood Tracker ───────────────────────────────────────────────────────────
-  function MoodTracker() {
+  function MoodTracker({ user }) {
     const [selectedMood, setSelectedMood] = useState('')
     const [note, setNote] = useState('')
     const [entries, setEntries] = useState([])
+    const [saving, setSaving] = useState(false)
+    const [logged, setLogged] = useState(false)
+
     const moods = [
       { emoji: '😊', label: 'Happy', value: 'happy' },
       { emoji: '😐', label: 'Neutral', value: 'neutral' },
@@ -232,16 +274,30 @@ export default function Activities({ user }) {
       { emoji: '😰', label: 'Anxious', value: 'anxious' },
       { emoji: '😡', label: 'Angry', value: 'angry' },
     ]
+
     const logMood = () => {
-      if (selectedMood) {
-        setEntries([{ mood: selectedMood, note, date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() }, ...entries])
-        setSelectedMood('')
-        setNote('')
-      }
+      if (!selectedMood) return
+      setEntries([
+        {
+          mood: selectedMood,
+          note,
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString(),
+        },
+        ...entries,
+      ])
+      setSaving(true)
+      completeIntervention(user?.id, 'mood')
+        .then(() => { console.log('Mood intervention recorded'); setLogged(true) })
+        .catch(err => console.error('Failed to record mood intervention:', err))
+        .finally(() => setSaving(false))
+      setSelectedMood('')
+      setNote('')
     }
+
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">📊 Mood Tracker</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Mood Tracker</h3>
         <div className="flex items-center justify-center gap-1.5 mb-8 bg-green-50 py-1.5 px-3 rounded-full w-fit mx-auto border border-green-200">
           <LockClosedIcon className="w-3 h-3 text-green-600" />
           <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Private and Confidential</p>
@@ -253,7 +309,7 @@ export default function Activities({ user }) {
               <button
                 key={mood.value}
                 onClick={() => setSelectedMood(mood.value)}
-                className={`p-4 rounded-lg border-2 transition-colors ${selectedMood === mood.value ? 'border-purple-500 bg-purple-50' : 'border-purple-200 hover:border-purple-300'}`}
+                className={'p-4 rounded-lg border-2 transition-colors ' + (selectedMood === mood.value ? 'border-purple-500 bg-purple-50' : 'border-purple-200 hover:border-purple-300')}
               >
                 <div className="text-3xl mb-2">{mood.emoji}</div>
                 <div className="text-sm">{mood.label}</div>
@@ -271,8 +327,19 @@ export default function Activities({ user }) {
             rows="3"
           />
         </div>
-        <button onClick={logMood} disabled={!selectedMood} className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6">
-          Log Mood
+        {logged && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-green-700 font-semibold text-sm">
+              {saving ? 'Recording...' : 'Mood logged! Wellness activity recorded.'}
+            </p>
+          </div>
+        )}
+        <button
+          onClick={logMood}
+          disabled={!selectedMood || saving}
+          className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6"
+        >
+          {saving ? 'Logging...' : 'Log Mood'}
         </button>
         {entries.length > 0 && (
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
@@ -290,15 +357,23 @@ export default function Activities({ user }) {
   }
 
   // ── Gratitude Journal ──────────────────────────────────────────────────────
-  function GratitudeJournal() {
+  function GratitudeJournal({ user }) {
     const [gratitude, setGratitude] = useState('')
     const [entries, setEntries] = useState([])
+    const [saving, setSaving] = useState(false)
+    const [logged, setLogged] = useState(false)
+
     const addEntry = () => {
-      if (gratitude.trim()) {
-        setEntries([{ text: gratitude, date: new Date().toLocaleDateString() }, ...entries])
-        setGratitude('')
-      }
+      if (!gratitude.trim()) return
+      setEntries([{ text: gratitude, date: new Date().toLocaleDateString() }, ...entries])
+      setSaving(true)
+      completeIntervention(user?.id, 'gratitude')
+        .then(() => { console.log('Gratitude intervention recorded'); setLogged(true) })
+        .catch(err => console.error('Failed to record gratitude intervention:', err))
+        .finally(() => setSaving(false))
+      setGratitude('')
     }
+
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Gratitude Journal</h3>
@@ -316,8 +391,19 @@ export default function Activities({ user }) {
             rows="4"
           />
         </div>
-        <button onClick={addEntry} disabled={!gratitude.trim()} className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6">
-          Add Entry
+        {logged && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-green-700 font-semibold text-sm">
+              {saving ? 'Recording...' : 'Entry added! Wellness activity recorded.'}
+            </p>
+          </div>
+        )}
+        <button
+          onClick={addEntry}
+          disabled={!gratitude.trim() || saving}
+          className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6"
+        >
+          {saving ? 'Saving...' : 'Add Entry'}
         </button>
         {entries.length > 0 && (
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
@@ -335,34 +421,56 @@ export default function Activities({ user }) {
   }
 
   // ── Sleep Tracker ──────────────────────────────────────────────────────────
-  function SleepTracker() {
+  function SleepTracker({ user }) {
     const [bedtime, setBedtime] = useState('')
     const [wakeTime, setWakeTime] = useState('')
     const [quality, setQuality] = useState('')
     const [entries, setEntries] = useState([])
+    const [saving, setSaving] = useState(false)
+    const [logged, setLogged] = useState(false)
+
     const logSleep = () => {
-      if (bedtime && wakeTime && quality) {
-        setEntries([{ bedtime, wakeTime, quality, date: new Date().toLocaleDateString() }, ...entries])
-        setBedtime('')
-        setWakeTime('')
-        setQuality('')
-      }
+      if (!bedtime || !wakeTime || !quality) return
+      setEntries([{ bedtime, wakeTime, quality, date: new Date().toLocaleDateString() }, ...entries])
+      setSaving(true)
+      completeIntervention(user?.id, 'sleep')
+        .then(() => { console.log('Sleep intervention recorded'); setLogged(true) })
+        .catch(err => console.error('Failed to record sleep intervention:', err))
+        .finally(() => setSaving(false))
+      setBedtime('')
+      setWakeTime('')
+      setQuality('')
     }
+
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🌙 Sleep Tracker</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Sleep Tracker</h3>
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-gray-700 mb-2">Bedtime:</label>
-            <input type="time" value={bedtime} onChange={(e) => setBedtime(e.target.value)} className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500" />
+            <input
+              type="time"
+              value={bedtime}
+              onChange={(e) => setBedtime(e.target.value)}
+              className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
           </div>
           <div>
             <label className="block text-gray-700 mb-2">Wake Time:</label>
-            <input type="time" value={wakeTime} onChange={(e) => setWakeTime(e.target.value)} className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500" />
+            <input
+              type="time"
+              value={wakeTime}
+              onChange={(e) => setWakeTime(e.target.value)}
+              className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
           </div>
           <div>
             <label className="block text-gray-700 mb-2">Sleep Quality:</label>
-            <select value={quality} onChange={(e) => setQuality(e.target.value)} className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500">
+            <select
+              value={quality}
+              onChange={(e) => setQuality(e.target.value)}
+              className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500"
+            >
               <option value="">Select quality</option>
               <option value="excellent">Excellent</option>
               <option value="good">Good</option>
@@ -371,8 +479,19 @@ export default function Activities({ user }) {
             </select>
           </div>
         </div>
-        <button onClick={logSleep} disabled={!bedtime || !wakeTime || !quality} className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6">
-          Log Sleep
+        {logged && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-green-700 font-semibold text-sm">
+              {saving ? 'Recording...' : 'Sleep logged! Wellness activity recorded.'}
+            </p>
+          </div>
+        )}
+        <button
+          onClick={logSleep}
+          disabled={!bedtime || !wakeTime || !quality || saving}
+          className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6"
+        >
+          {saving ? 'Logging...' : 'Log Sleep'}
         </button>
         {entries.length > 0 && (
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
@@ -406,7 +525,7 @@ export default function Activities({ user }) {
       if (!studentId) return
       setLoading(true)
       getGoals(studentId)
-        .then(data => setGoals(data || []))
+        .then(data => setGoals(Array.isArray(data) ? data : []))
         .catch(() => setGoals([]))
         .finally(() => setLoading(false))
     }, [studentId])
@@ -420,11 +539,17 @@ export default function Activities({ user }) {
       setMsg('')
       try {
         const newGoal = await saveGoal(studentId, goal, subjectTag, targetDate)
-        setGoals(prev => [newGoal, ...prev])
+        setGoals(prev => {
+          const list = Array.isArray(prev) ? prev : []
+          return [newGoal, ...list]
+        })
         setGoal('')
         setTargetDate('')
         setSubjectTag('Mathematics')
-        setMsg('Goal saved!')
+        completeIntervention(studentId, 'goal')
+          .then(() => console.log('Goal intervention recorded'))
+          .catch(err => console.error('Failed to record goal intervention:', err))
+        setMsg('Goal saved! Wellness activity recorded.')
       } catch {
         setMsg('Failed to save goal. Please try again.')
       } finally {
@@ -435,7 +560,10 @@ export default function Activities({ user }) {
     const handleDelete = async (goalId) => {
       try {
         await deleteGoal(studentId, goalId)
-        setGoals(prev => prev.filter(g => g.id !== goalId))
+        setGoals(prev => {
+          const list = Array.isArray(prev) ? prev : []
+          return list.filter(g => g.id !== goalId)
+        })
       } catch {
         setMsg('Failed to delete goal.')
       }
@@ -443,7 +571,7 @@ export default function Activities({ user }) {
 
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">🎯 Goal Setting</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Goal Setting</h3>
         <div className="flex items-center justify-center gap-1.5 mb-6 bg-green-50 py-1.5 px-3 rounded-full w-fit mx-auto border border-green-200">
           <LockClosedIcon className="w-3 h-3 text-green-600" />
           <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Private and Confidential</p>
@@ -482,7 +610,6 @@ export default function Activities({ user }) {
             </div>
           </div>
         </div>
-
         <button
           onClick={addGoal}
           disabled={!goal.trim() || !targetDate || saving}
@@ -490,13 +617,11 @@ export default function Activities({ user }) {
         >
           {saving ? 'Saving...' : 'Add Goal'}
         </button>
-
         {msg && (
-          <p className={`text-sm text-center mb-4 font-medium ${msg === 'Goal saved!' ? 'text-green-600' : 'text-red-500'}`}>
+          <p className={'text-sm text-center mb-4 font-medium ' + (msg.includes('saved') ? 'text-green-600' : 'text-red-500')}>
             {msg}
           </p>
         )}
-
         {loading ? (
           <div className="flex justify-center py-6">
             <div className="w-6 h-6 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
@@ -512,7 +637,7 @@ export default function Activities({ user }) {
                     <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">{g.subjectTag}</span>
                     {g.targetDate && (
                       <span className="text-xs text-gray-500 font-medium">
-                        🎯 Target: {new Date(g.targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        Target: {new Date(g.targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     )}
                   </div>
@@ -543,7 +668,7 @@ export default function Activities({ user }) {
     ]
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">📞 Crisis Resources</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Crisis Resources</h3>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p className="text-red-800 font-semibold">If you are in immediate danger, call 911</p>
         </div>
@@ -577,20 +702,17 @@ export default function Activities({ user }) {
         <p className="text-center text-sm text-gray-500 mb-6">
           Badges are awarded automatically when you reach login and session milestones.
         </p>
-
         {loading && (
           <div className="text-center py-8">
             <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-3" />
             <p className="text-gray-600">Loading your rewards...</p>
           </div>
         )}
-
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
             <p className="text-red-600 font-medium">{error}</p>
           </div>
         )}
-
         {!loading && !error && badges.length === 0 && (
           <div className="text-center py-10">
             <TrophyIcon className="w-16 h-16 text-gray-300 mx-auto mb-3" />
@@ -600,7 +722,6 @@ export default function Activities({ user }) {
             </p>
           </div>
         )}
-
         {!loading && !error && badges.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {badges.map((badge) => (
@@ -610,7 +731,7 @@ export default function Activities({ user }) {
               >
                 {badge.imageBase64 ? (
                   <img
-                    src={`data:${badge.imageType || 'image/png'};base64,${badge.imageBase64}`}
+                    src={'data:' + (badge.imageType || 'image/png') + ';base64,' + badge.imageBase64}
                     alt={badge.title}
                     className="w-14 h-14 rounded-xl object-cover border border-purple-100 shadow"
                   />
