@@ -7,9 +7,13 @@ import {
   FlagIcon,
   PhoneIcon,
   LockClosedIcon,
-  TrophyIcon
+  TrophyIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { fetchMyBadges } from '../../../api/rewardsApi'
+import { getGoals, saveGoal, deleteGoal } from '../../../api/activitiesApi.js'
+
+const SUBJECTS = ['Mathematics', 'Science', 'SST', 'English', 'Hindi', 'Art & Craft', 'Physical Education', 'Computer Science', 'Other']
 
 export default function Activities({ user }) {
   const [activeTool, setActiveTool] = useState(null)
@@ -48,7 +52,7 @@ export default function Activities({ user }) {
       icon: ClockIcon,
       color: 'green',
       bgColor: 'from-green-100 to-green-200',
-      btnLabel: 'Start Session'
+      btnLabel: 'Start Session',
     },
     {
       id: 'mood',
@@ -57,7 +61,7 @@ export default function Activities({ user }) {
       icon: ChartBarIcon,
       color: 'orange',
       bgColor: 'from-orange-100 to-orange-200',
-      btnLabel: 'Log Mood'
+      btnLabel: 'Log Mood',
     },
     {
       id: 'gratitude',
@@ -66,7 +70,7 @@ export default function Activities({ user }) {
       icon: PencilSquareIcon,
       color: 'blue',
       bgColor: 'from-blue-100 to-blue-200',
-      btnLabel: 'Write Entry'
+      btnLabel: 'Write Entry',
     },
     {
       id: 'sleep',
@@ -75,7 +79,7 @@ export default function Activities({ user }) {
       icon: MoonIcon,
       color: 'purple',
       bgColor: 'from-purple-100 to-purple-200',
-      btnLabel: 'Log Sleep'
+      btnLabel: 'Log Sleep',
     },
     {
       id: 'goals',
@@ -84,7 +88,7 @@ export default function Activities({ user }) {
       icon: FlagIcon,
       color: 'green',
       bgColor: 'from-green-100 to-green-200',
-      btnLabel: 'Set Goals'
+      btnLabel: 'Set Goals',
     },
     {
       id: 'rewards',
@@ -93,7 +97,7 @@ export default function Activities({ user }) {
       icon: TrophyIcon,
       color: 'yellow',
       bgColor: 'from-yellow-100 to-yellow-200',
-      btnLabel: 'View Rewards'
+      btnLabel: 'View Rewards',
     },
     {
       id: 'crisis',
@@ -102,8 +106,8 @@ export default function Activities({ user }) {
       icon: PhoneIcon,
       color: 'red',
       bgColor: 'from-red-100 to-red-200',
-      btnLabel: 'View Resources'
-    }
+      btnLabel: 'View Resources',
+    },
   ]
 
   return (
@@ -150,12 +154,11 @@ export default function Activities({ user }) {
             >
               &times;
             </button>
-
             {activeTool === 'meditation' && <MeditationTimer />}
             {activeTool === 'mood' && <MoodTracker />}
             {activeTool === 'gratitude' && <GratitudeJournal />}
             {activeTool === 'sleep' && <SleepTracker />}
-            {activeTool === 'goals' && <GoalSetting />}
+            {activeTool === 'goals' && <GoalSetting user={user} />}
             {activeTool === 'rewards' && (
               <RewardsViewer badges={badges} loading={badgesLoading} error={badgesError} />
             )}
@@ -166,6 +169,7 @@ export default function Activities({ user }) {
     </div>
   )
 
+  // ── Meditation Timer ───────────────────────────────────────────────────────
   function MeditationTimer() {
     const [duration, setDuration] = useState(5)
     const [isActive, setIsActive] = useState(false)
@@ -176,11 +180,7 @@ export default function Activities({ user }) {
       setTimeLeft(duration * 60)
       const interval = setInterval(() => {
         setTimeLeft(prev => {
-          if (prev <= 1) {
-            setIsActive(false)
-            clearInterval(interval)
-            return 0
-          }
+          if (prev <= 1) { setIsActive(false); clearInterval(interval); return 0 }
           return prev - 1
         })
       }, 1000)
@@ -194,15 +194,11 @@ export default function Activities({ user }) {
 
     return (
       <div className="text-center">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">Meditation Timer</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6">🧘 Meditation Timer</h3>
         {!isActive && (
           <div className="mb-6">
             <label className="block text-gray-700 mb-2">Select Duration:</label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="border-2 border-purple-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500"
-            >
+            <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="border-2 border-purple-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500">
               <option value={5}>5 minutes</option>
               <option value={10}>10 minutes</option>
               <option value={15}>15 minutes</option>
@@ -211,21 +207,12 @@ export default function Activities({ user }) {
             </select>
           </div>
         )}
-        <div className="text-6xl font-bold text-purple-600 mb-6">
-          {formatTime(timeLeft)}
-        </div>
+        <div className="text-6xl font-bold text-purple-600 mb-6">{formatTime(timeLeft)}</div>
         <div className="space-x-4">
-          <button
-            onClick={startTimer}
-            disabled={isActive}
-            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
-          >
+          <button onClick={startTimer} disabled={isActive} className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50">
             {isActive ? 'In Progress...' : 'Start Meditation'}
           </button>
-          <button
-            onClick={() => { setIsActive(false); setTimeLeft(duration * 60) }}
-            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800"
-          >
+          <button onClick={() => { setIsActive(false); setTimeLeft(duration * 60) }} className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800">
             Reset
           </button>
         </div>
@@ -233,19 +220,18 @@ export default function Activities({ user }) {
     )
   }
 
+  // ── Mood Tracker ───────────────────────────────────────────────────────────
   function MoodTracker() {
     const [selectedMood, setSelectedMood] = useState('')
     const [note, setNote] = useState('')
     const [entries, setEntries] = useState([])
-
     const moods = [
       { emoji: '😊', label: 'Happy', value: 'happy' },
       { emoji: '😐', label: 'Neutral', value: 'neutral' },
       { emoji: '😔', label: 'Sad', value: 'sad' },
       { emoji: '😰', label: 'Anxious', value: 'anxious' },
-      { emoji: '😡', label: 'Angry', value: 'angry' }
+      { emoji: '😡', label: 'Angry', value: 'angry' },
     ]
-
     const logMood = () => {
       if (selectedMood) {
         setEntries([{ mood: selectedMood, note, date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() }, ...entries])
@@ -253,10 +239,9 @@ export default function Activities({ user }) {
         setNote('')
       }
     }
-
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Mood Tracker</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">📊 Mood Tracker</h3>
         <div className="flex items-center justify-center gap-1.5 mb-8 bg-green-50 py-1.5 px-3 rounded-full w-fit mx-auto border border-green-200">
           <LockClosedIcon className="w-3 h-3 text-green-600" />
           <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Private and Confidential</p>
@@ -281,7 +266,7 @@ export default function Activities({ user }) {
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="What is on your mind?"
+            placeholder="What's on your mind?"
             className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500"
             rows="3"
           />
@@ -304,17 +289,16 @@ export default function Activities({ user }) {
     )
   }
 
+  // ── Gratitude Journal ──────────────────────────────────────────────────────
   function GratitudeJournal() {
     const [gratitude, setGratitude] = useState('')
     const [entries, setEntries] = useState([])
-
     const addEntry = () => {
       if (gratitude.trim()) {
         setEntries([{ text: gratitude, date: new Date().toLocaleDateString() }, ...entries])
         setGratitude('')
       }
     }
-
     return (
       <div>
         <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Gratitude Journal</h3>
@@ -350,12 +334,12 @@ export default function Activities({ user }) {
     )
   }
 
+  // ── Sleep Tracker ──────────────────────────────────────────────────────────
   function SleepTracker() {
     const [bedtime, setBedtime] = useState('')
     const [wakeTime, setWakeTime] = useState('')
     const [quality, setQuality] = useState('')
     const [entries, setEntries] = useState([])
-
     const logSleep = () => {
       if (bedtime && wakeTime && quality) {
         setEntries([{ bedtime, wakeTime, quality, date: new Date().toLocaleDateString() }, ...entries])
@@ -364,10 +348,9 @@ export default function Activities({ user }) {
         setQuality('')
       }
     }
-
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Sleep Tracker</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🌙 Sleep Tracker</h3>
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-gray-700 mb-2">Bedtime:</label>
@@ -407,74 +390,160 @@ export default function Activities({ user }) {
     )
   }
 
-  function GoalSetting() {
+  // ── Goal Setting ───────────────────────────────────────────────────────────
+  function GoalSetting({ user }) {
     const [goal, setGoal] = useState('')
-    const [deadline, setDeadline] = useState('')
+    const [subjectTag, setSubjectTag] = useState('Mathematics')
+    const [targetDate, setTargetDate] = useState('')
     const [goals, setGoals] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [msg, setMsg] = useState('')
 
-    const addGoal = () => {
-      if (goal.trim() && deadline) {
-        setGoals([{ text: goal, deadline, completed: false, id: Date.now() }, ...goals])
+    const studentId = user?.id
+
+    useEffect(() => {
+      if (!studentId) return
+      setLoading(true)
+      getGoals(studentId)
+        .then(data => setGoals(data || []))
+        .catch(() => setGoals([]))
+        .finally(() => setLoading(false))
+    }, [studentId])
+
+    const addGoal = async () => {
+      if (!goal.trim() || !targetDate) {
+        setMsg('Please enter a goal and select a target date.')
+        return
+      }
+      setSaving(true)
+      setMsg('')
+      try {
+        const newGoal = await saveGoal(studentId, goal, subjectTag, targetDate)
+        setGoals(prev => [newGoal, ...prev])
         setGoal('')
-        setDeadline('')
+        setTargetDate('')
+        setSubjectTag('Mathematics')
+        setMsg('Goal saved!')
+      } catch {
+        setMsg('Failed to save goal. Please try again.')
+      } finally {
+        setSaving(false)
       }
     }
 
-    const toggleGoal = (id) => {
-      setGoals(goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g))
+    const handleDelete = async (goalId) => {
+      try {
+        await deleteGoal(studentId, goalId)
+        setGoals(prev => prev.filter(g => g.id !== goalId))
+      } catch {
+        setMsg('Failed to delete goal.')
+      }
     }
 
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Goal Setting</h3>
-        <div className="flex items-center justify-center gap-1.5 mb-8 bg-green-50 py-1.5 px-3 rounded-full w-fit mx-auto border border-green-200">
+        <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">🎯 Goal Setting</h3>
+        <div className="flex items-center justify-center gap-1.5 mb-6 bg-green-50 py-1.5 px-3 rounded-full w-fit mx-auto border border-green-200">
           <LockClosedIcon className="w-3 h-3 text-green-600" />
           <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Private and Confidential</p>
         </div>
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-gray-700 mb-2">Your Goal:</label>
-            <input type="text" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="What do you want to achieve?" className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500" />
+            <label className="block text-gray-700 mb-2 text-sm font-medium">Your Goal</label>
+            <input
+              type="text"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="What do you want to achieve?"
+              className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+            />
           </div>
-          <div>
-            <label className="block text-gray-700 mb-2">Target Date:</label>
-            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Subject</label>
+              <select
+                value={subjectTag}
+                onChange={(e) => setSubjectTag(e.target.value)}
+                className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                {SUBJECTS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">Target Date</label>
+              <input
+                type="date"
+                value={targetDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className="w-full p-3 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+            </div>
           </div>
         </div>
-        <button onClick={addGoal} disabled={!goal.trim() || !deadline} className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-6">
-          Add Goal
+
+        <button
+          onClick={addGoal}
+          disabled={!goal.trim() || !targetDate || saving}
+          className="w-full bg-black text-white py-2.5 rounded-lg hover:bg-gray-800 disabled:opacity-50 mb-2 font-medium transition-colors"
+        >
+          {saving ? 'Saving...' : 'Add Goal'}
         </button>
-        {goals.length > 0 && (
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <h4 className="font-semibold mb-2">Your Goals:</h4>
+
+        {msg && (
+          <p className={`text-sm text-center mb-4 font-medium ${msg === 'Goal saved!' ? 'text-green-600' : 'text-red-500'}`}>
+            {msg}
+          </p>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <div className="w-6 h-6 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+          </div>
+        ) : goals.length > 0 ? (
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 space-y-3">
+            <h4 className="font-semibold text-gray-800">Your Goals</h4>
             {goals.map((g) => (
-              <div key={g.id} className="mb-2 p-3 bg-white rounded flex items-center justify-between">
-                <div className={g.completed ? 'line-through text-gray-500' : ''}>
-                  <p className="font-medium">{g.text}</p>
-                  <p className="text-sm text-gray-600">Due: {g.deadline}</p>
+              <div key={g.id} className="bg-white rounded-xl p-4 border border-purple-100 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900 mb-1">{g.goalText}</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">{g.subjectTag}</span>
+                    {g.targetDate && (
+                      <span className="text-xs text-gray-500 font-medium">
+                        🎯 Target: {new Date(g.targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <button onClick={() => toggleGoal(g.id)} className={`px-3 py-1 rounded text-sm ${g.completed ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                  {g.completed ? 'Done' : 'Mark Done'}
+                <button
+                  onClick={() => handleDelete(g.id)}
+                  className="text-red-400 hover:text-red-600 transition-colors shrink-0 p-1"
+                >
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
             ))}
           </div>
+        ) : (
+          <p className="text-center text-sm text-gray-400 py-4">No goals yet. Add your first goal above!</p>
         )}
       </div>
     )
   }
 
+  // ── Crisis Resources ───────────────────────────────────────────────────────
   function CrisisResources() {
     const resources = [
       { name: 'National Suicide Prevention Lifeline', number: '988', description: '24/7 crisis support' },
       { name: 'Crisis Text Line', number: 'Text HOME to 741741', description: 'Free 24/7 crisis counseling' },
       { name: 'Teen Line', number: '1-800-852-8336', description: 'Teens helping teens' },
-      { name: 'SAMHSA National Helpline', number: '1-800-662-4357', description: 'Mental health and substance abuse' }
+      { name: 'SAMHSA National Helpline', number: '1-800-662-4357', description: 'Mental health and substance abuse' },
     ]
-
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Crisis Resources</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">📞 Crisis Resources</h3>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p className="text-red-800 font-semibold">If you are in immediate danger, call 911</p>
         </div>
@@ -500,6 +569,7 @@ export default function Activities({ user }) {
     )
   }
 
+  // ── Rewards Viewer ─────────────────────────────────────────────────────────
   function RewardsViewer({ badges, loading, error }) {
     return (
       <div>
