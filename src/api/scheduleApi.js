@@ -53,3 +53,46 @@ export async function toggleTaskComplete(taskId) {
 export async function deleteTask(taskId) {
     await apiDelete(`/api/schedule/task/${taskId}`);
 }
+
+// ── RECOMMENDATIONS ───────────────────────────────────────────────────────────
+// Returns { blockedWindows, upcomingExams, suggestions }
+export async function getRecommendations(studentId, day) {
+    const res = await apiGet(`/api/schedule/${studentId}/recommendations?day=${day}`);
+    return res.data;
+}
+
+// ── SCHOOL TIMINGS (Admin) ────────────────────────────────────────────────────
+// Save all timings for a school (replaces existing)
+export async function saveSchoolTimings(schoolId, timings) {
+    const res = await apiPost(`/api/schedule/school-timings/${schoolId}`, timings);
+    return res.data;
+}
+
+// Get all timings for a school
+export async function getSchoolTimings(schoolId) {
+    const res = await apiGet(`/api/schedule/school-timings/${schoolId}`);
+    return res.data;
+}
+
+// ── EXAM DATES (Admin) ────────────────────────────────────────────────────────
+// Add a new exam date
+export async function addExamDate(schoolId, className, subjectName, examDate) {
+    const res = await apiPost('/api/schedule/exam-dates', {
+        schoolId,
+        className,
+        subjectName,
+        examDate
+    });
+    return res.data;
+}
+
+// Get all exam dates for a school
+export async function getExamDates(schoolId) {
+    const res = await apiGet(`/api/schedule/exam-dates/${schoolId}`);
+    return res.data;
+}
+
+// Delete an exam date
+export async function deleteExamDate(examId) {
+    await apiDelete(`/api/schedule/exam-dates/${examId}`);
+}
