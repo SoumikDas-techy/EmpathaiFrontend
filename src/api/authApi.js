@@ -1,4 +1,4 @@
-import { apiPost, setTokens, clearTokens } from './apiClient.js';
+import { apiPost, apiGet, setTokens, clearTokens } from './apiClient.js';
 
 /**
  * Log in with email + password.
@@ -7,7 +7,6 @@ import { apiPost, setTokens, clearTokens } from './apiClient.js';
  */
 export async function login(email, password) {
   const data = await apiPost('/api/auth/login', { email, password });
-  // Unified logic for backend's 'token' field
   setTokens(data.token, data.refreshToken);
   if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
   return data.user;
@@ -37,11 +36,11 @@ export function getCurrentUser() {
  */
 export function mapRole(backendRole) {
   const map = {
-    SUPER_ADMIN:    'super_admin',
-    SCHOOL_ADMIN:   'school_admin',
-    PSYCHOLOGIST:   'psychologist',
-    CONTENT_ADMIN:  'content_admin',
-    STUDENT:        'student'
+    SUPER_ADMIN: 'super_admin',
+    SCHOOL_ADMIN: 'school_admin',
+    PSYCHOLOGIST: 'psychologist',
+    CONTENT_ADMIN: 'content_admin',
+    STUDENT: 'student'
   };
   return map[backendRole] || backendRole?.toLowerCase() || '';
 }
@@ -50,5 +49,37 @@ export function mapRole(backendRole) {
  * Check if the stored user is an admin (any non-student role).
  */
 export function isAdminRole(role) {
-  return ['super_admin', 'school_admin', 'psychologist', 'content_admin', 'SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN'].includes(role);
+  return [
+    'super_admin', 'school_admin', 'psychologist', 'content_admin',
+    'SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN'
+  ].includes(role);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASSWORD SETUP (Email invite flow — MFA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Validate the one-time token from the email invite link.
+ * Called on mount of /set-password page before showing the form.
+ *
+ * GET /api/auth/validate-token?token=xxx
+ * Returns: { valid: true, name: "John", email: "john@school.com" }
+ * Throws if token is invalid, expired, or already used.
+ */
+export async function validateSetupToken(token) {
+  return await apiGet(`/api/auth/validate-token?token=${token}`);
+}
+
+/**
+ * Submit the student's new password using their setup token.
+ * Called on form submit from /set-password page.
+ *
+ * POST /api/auth/set-password
+ * Body: { token, password, confirmPassword }
+ * Returns: { message: "Password set successfully. You can now log in." }
+ * Throws if passwords don't match, token invalid, or password too weak.
+ */
+export async function setStudentPassword(token, password, confirmPassword) {
+  return await apiPost('/api/auth/set-password', { token, password, confirmPassword });
 }

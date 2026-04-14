@@ -7,6 +7,9 @@ import InclusivityFocus from './components/InclusivityFocus'
 import Dashboard from './components/Dashboard'
 import LoginModal from './components/LoginModal'
 import AdminPanel from './components/admin/AdminPanel'
+import Auth from './components/Auth'                    // ← Added from second file
+import SetPassword from './components/SetPassword'     // ← Added from second file
+
 import { getCurrentUser, logout as authLogout, isAdminRole } from './api/authApi.js'
 import { clearTokens } from './api/apiClient.js'
 import { updateTimeSpent } from './api/usermanagementapi.js'
@@ -19,11 +22,21 @@ function isAdmin(user) {
   return ADMIN_ROLES.includes(user.role)
 }
 
+// ─── Detect if the URL is /set-password on first load ────────────────────────
+function isSetPasswordRoute() {
+  return window.location.pathname === '/set-password'
+}
+
 // Sync time to backend every 60 seconds
 const SYNC_INTERVAL_MS = 60 * 1000
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('home')
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Check URL first — /set-password must work even when user is not logged in
+    if (isSetPasswordRoute()) return 'set-password'
+    return 'home'
+  })
+
   const [user, setUser] = useState(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
 
@@ -95,7 +108,7 @@ function App() {
 
       const elapsedSeconds = Math.floor((Date.now() - lastSyncedRef.current) / 1000)
       if (elapsedSeconds > 0) {
-        // sendBeacon is reliable on page close unlike fetch
+        // sendBeacon is reliable on page close
         const blob = new Blob(
           [JSON.stringify({ seconds: elapsedSeconds })],
           { type: 'application/json' }
@@ -110,6 +123,9 @@ function App() {
 
   // ── Restore session on page load ──────────────────────────────────────────
   useEffect(() => {
+    // Don't restore session if we're on the set-password page
+    if (currentPage === 'set-password') return
+
     const savedUser = getCurrentUser()
     if (savedUser) {
       setUser(savedUser)
@@ -122,6 +138,7 @@ function App() {
       setUser(null)
       setCurrentPage('home')
     }
+
     window.addEventListener('auth:logout', handleAuthLogout)
 
     // Scroll reveal animation
@@ -139,14 +156,9 @@ function App() {
       observer.disconnect()
       window.removeEventListener('auth:logout', handleAuthLogout)
     }
-  }, [])
+  }, [currentPage])   // Note: kept dependency on currentPage as in second version
 
   const navigateToAuth = () => {
-    setShowLoginModal(true)
-  }
-
-  if (currentPage === 'auth') {
-    setCurrentPage('home')
     setShowLoginModal(true)
   }
 
@@ -180,6 +192,15 @@ function App() {
     setCurrentPage('home')
   }
 
+  // ── Route: /set-password?token=xxx  (fully public, no auth needed) ──
+  if (currentPage === 'set-password') {
+    return <SetPassword />
+  }
+
+  if (currentPage === 'auth') {
+    return <Auth onBackToHome={navigateToHome} onLoginSuccess={navigateToDashboard} />
+  }
+
   if (currentPage === 'admin' && user) {
     return <AdminPanel user={user} onLogout={handleLogout} />
   }
@@ -188,6 +209,7 @@ function App() {
     return <Dashboard user={user} onLogout={handleLogout} />
   }
 
+  // Default landing page
   return (
     <div className="min-h-screen bg-gray-50/30">
       <Header />
@@ -203,6 +225,7 @@ function App() {
           <InclusivityFocus />
         </div>
       </main>
+
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}

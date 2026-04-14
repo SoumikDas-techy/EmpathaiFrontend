@@ -1,160 +1,208 @@
-import { apiRequest } from './apiClient'
+import { apiGet, apiPost, apiPut, apiDelete } from './apiClient.js';
 
-const BASE = '/api/users'
+// ── Students ──────────────────────────────────────────────────────────────────
 
-// ── Users ─────────────────────────────────────────────────────────────────────
-
-export async function getStudents({ school, search, page = 0, size = 50 } = {}) {
-    const params = new URLSearchParams()
-    if (school) params.append('school', school)
-    if (search) params.append('search', search)
-    params.append('page', page)
-    params.append('size', size)
-
-    const res = await apiRequest(`${BASE}/students?${params}`)
-    if (!res.ok) throw new Error(`Failed to fetch students (HTTP ${res.status})`)
-    return res.json()
+export function getStudents({ school, search, page = 0, size = 50 } = {}) {
+    const params = new URLSearchParams();
+    if (school) params.set('school', school);
+    if (search) params.set('search', search);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/users/students?${params}`);
 }
 
-export async function getSchoolAdmins({ search, page = 0, size = 50 } = {}) {
-    const params = new URLSearchParams()
-    if (search) params.append('search', search)
-    params.append('page', page)
-    params.append('size', size)
+// ── School admins ─────────────────────────────────────────────────────────────
 
-    const res = await apiRequest(`${BASE}/school-admins?${params}`)
-    if (!res.ok) throw new Error(`Failed to fetch school admins (HTTP ${res.status})`)
-    return res.json()
+export function getSchoolAdmins({ search, page = 0, size = 50 } = {}) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/users/school-admins?${params}`);
 }
 
-export async function getPsychologists({ search, page = 0, size = 50 } = {}) {
-    const params = new URLSearchParams()
-    if (search) params.append('search', search)
-    params.append('page', page)
-    params.append('size', size)
+// ── Psychologists ─────────────────────────────────────────────────────────────
 
-    const res = await apiRequest(`${BASE}/psychologists?${params}`)
-    if (!res.ok) throw new Error(`Failed to fetch psychologists (HTTP ${res.status})`)
-    return res.json()
+export function getPsychologists({ search, page = 0, size = 50 } = {}) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/users/psychologists?${params}`);
 }
 
-export async function getContentAdmins({ search, page = 0, size = 50 } = {}) {
-    const params = new URLSearchParams()
-    if (search) params.append('search', search)
-    params.append('page', page)
-    params.append('size', size)
+// ── Content admins ────────────────────────────────────────────────────────────
 
-    const res = await apiRequest(`${BASE}/content-admins?${params}`)
-    if (!res.ok) throw new Error(`Failed to fetch content admins (HTTP ${res.status})`)
-    return res.json()
+export function getContentAdmins({ search, page = 0, size = 50 } = {}) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/users/content-admins?${params}`);
 }
 
-export async function getUserById(id) {
-    const res = await apiRequest(`${BASE}/${id}`)
-    if (!res.ok) throw new Error(`Failed to fetch user (HTTP ${res.status})`)
-    return res.json()
+// ── School summary ────────────────────────────────────────────────────────────
+
+export function getSchoolSummaries() {
+    return apiGet('/api/schools/summary');
 }
 
-export async function createUser(data) {
-    const res = await apiRequest(`${BASE}`, {
-        method: 'POST',
-        body: JSON.stringify(data)
-    })
-    if (!res.ok) throw new Error(`Failed to create user (HTTP ${res.status})`)
-    return res.json()
+// ── Single user ───────────────────────────────────────────────────────────────
+
+export function getUser(id) {
+    return apiGet(`/api/users/${id}`);
 }
 
-export async function updateUser(id, data) {
-    const res = await apiRequest(`${BASE}/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data)
-    })
-    if (!res.ok) throw new Error(`Failed to update user (HTTP ${res.status})`)
-    return res.json()
+// ── Create user ───────────────────────────────────────────────────────────────
+
+export function createUser(data) {
+    return apiPost('/api/users', data);
 }
 
-export async function deleteUser(id) {
-    const res = await apiRequest(`${BASE}/${id}`, {
-        method: 'DELETE'
-    })
-    if (!res.ok) throw new Error(`Failed to delete user (HTTP ${res.status})`)
+// ── Update user ───────────────────────────────────────────────────────────────
+
+export function updateUser(id, data) {
+    return apiPut(`/api/users/${id}`, data);
 }
 
-export async function resetPassword(id) {
-    const res = await apiRequest(`${BASE}/${id}/reset-password`, {
-        method: 'POST'
-    })
-    if (!res.ok) throw new Error(`Failed to reset password (HTTP ${res.status})`)
-    return res.json()
+// ── Delete user ───────────────────────────────────────────────────────────────
+
+export function deleteUser(id) {
+    return apiDelete(`/api/users/${id}`);
 }
 
-/**
- * Increments the student's time_spent by the given seconds.
- * Called every 60 seconds while the student is active on the platform.
- */
-export async function updateTimeSpent(studentId, seconds) {
-    if (!studentId || !seconds || seconds <= 0) return
-    const res = await apiRequest(`${BASE}/${studentId}/time-spent`, {
-        method: 'PATCH',
-        body: JSON.stringify({ seconds: Math.floor(seconds) })
-    })
-    if (!res.ok) throw new Error(`Failed to update time spent (HTTP ${res.status})`)
+// ── Reset password ────────────────────────────────────────────────────────────
+
+export function resetPassword(id) {
+    return apiPost(`/api/users/${id}/reset-password`);
 }
 
-/**
- * Fetches analytics dashboard data.
- * Returns totalStudents, totalAssessments, totalPsychologists, totalSchools.
- */
-export async function getAnalyticsDashboard() {
-    try {
-        // Fetch all data in parallel
-        const [studentsRes, psychologistsRes, schoolsRes] = await Promise.all([
-            apiRequest(`${BASE}/students?page=0&size=1`),
-            apiRequest(`${BASE}/psychologists?page=0&size=1`),
-            apiRequest('/api/schools')
-        ])
+// ── Schools ──────────────────────────────────────────────────────────────────
 
-        const studentsData = studentsRes.ok ? await studentsRes.json() : { totalElements: 0 }
-        const psychologistsData = psychologistsRes.ok ? await psychologistsRes.json() : { totalElements: 0 }
-        const schoolsData = schoolsRes.ok ? await schoolsRes.json() : []
-
-        return {
-            totalStudents: studentsData.totalElements || 0,
-            totalAssessments: 0, // No assessments endpoint yet
-            totalPsychologists: psychologistsData.totalElements || 0,
-            totalSchools: Array.isArray(schoolsData) ? schoolsData.length : 0,
-        }
-    } catch (err) {
-        console.error('Failed to fetch analytics dashboard:', err)
-        return {
-            totalStudents: 0,
-            totalAssessments: 0,
-            totalPsychologists: 0,
-            totalSchools: 0,
-        }
-    }
+export function getSchools() {
+    return apiGet('/api/schools');
 }
 
-// ── Schools ───────────────────────────────────────────────────────────────────
-
-export async function getSchools() {
-    const res = await apiRequest('/api/schools')
-    if (!res.ok) throw new Error(`Failed to fetch schools (HTTP ${res.status})`)
-    return res.json()
+export function createSchool(data) {
+    return apiPost('/api/schools', data);
 }
 
-export async function createSchool(data) {
-    const res = await apiRequest('/api/schools', {
-        method: 'POST',
-        body: JSON.stringify(data)
-    })
-    if (!res.ok) throw new Error(`Failed to create school (HTTP ${res.status})`)
-    return res.json()
+export function deleteSchool(id) {
+    return apiDelete(`/api/schools/${id}`);
 }
 
-export async function deleteSchool(id) {
-    const res = await apiRequest(`/api/schools/${id}`, {
-        method: 'DELETE'
-    })
-    if (!res.ok) throw new Error(`Failed to delete school (HTTP ${res.status})`)
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export function getAnalyticsDashboard() {
+    return apiGet('/api/analytics/dashboard');
+}
+
+// ── Assessment questions (admin) ──────────────────────────────────────────────
+
+export function getQuestions() {
+    return apiGet('/api/questionnaire/questions');
+}
+
+export function createQuestion(data) {
+    return apiPost('/api/questionnaire/questions', data);
+}
+
+export function updateQuestion(id, data) {
+    return apiPut(`/api/questionnaire/questions/${id}`, data);
+}
+
+export function deleteQuestion(id) {
+    return apiDelete(`/api/questionnaire/questions/${id}`);
+}
+
+// ── Assessment groups ──────────────────────────────────────────────────────────
+
+export function getGroups() {
+    return apiGet('/api/questionnaire/groups');
+}
+
+export function createGroup(data) {
+    return apiPost('/api/questionnaire/groups', data);
+}
+
+export function deleteGroup(name) {
+    return apiDelete(`/api/questionnaire/groups/${name}`);
+}
+
+// ── Assessment responses ──────────────────────────────────────────────────────
+
+export function getResponses({ studentId, page = 0, size = 20 } = {}) {
+    const params = new URLSearchParams();
+    if (studentId) params.set('studentId', studentId);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/questionnaire/responses?${params}`);
+}
+
+// ── Curriculum ────────────────────────────────────────────────────────────────
+
+export function getSyllabi({ classLevel, page = 0, size = 100 } = {}) {
+    const params = new URLSearchParams();
+    if (classLevel) params.set('classLevel', classLevel);
+    params.set('page', page);
+    params.set('size', size);
+    return apiGet(`/api/syllabi?${params}`);
+}
+
+export function getSyllabus(id) {
+    return apiGet(`/api/syllabi/${id}`);
+}
+
+export function createSyllabus(data) {
+    return apiPost('/api/syllabi', data);
+}
+
+export function updateSyllabus(id, data) {
+    return apiPut(`/api/syllabi/${id}`, data);
+}
+
+export function deleteSyllabus(id) {
+    return apiDelete(`/api/syllabi/${id}`);
+}
+
+export function getModules(syllabusId) {
+    return apiGet(`/api/syllabi/${syllabusId}/modules`);
+}
+
+export function createModule(syllabusId, data) {
+    return apiPost(`/api/syllabi/${syllabusId}/modules`, data);
+}
+
+export function updateModule(id, data) {
+    return apiPut(`/api/modules/${id}`, data);
+}
+
+export function deleteModule(id) {
+    return apiDelete(`/api/modules/${id}`);
+}
+
+export const getUserById = (id) => {
+    return apiGet(`/api/users/${id}`)
+}
+
+
+export function getClassesBySchool(schoolId) {
+    return apiGet(`/api/schools/${schoolId}/classes`);
+}
+
+// ── Students by class (Level 3) ───────────────────────────────────────────────
+
+export function getStudentsByClass(schoolId, className) {
+    return apiGet(`/api/schools/${schoolId}/classes/${encodeURIComponent(className)}/students`);
+}
+
+// ── Single student detail (Level 3b fallback) ─────────────────────────────────
+
+export function getStudentDetail(schoolId, className, studentId) {
+    return apiGet(`/api/schools/${schoolId}/classes/${encodeURIComponent(className)}/students/${studentId}`);
+}
+
+export async function updateTimeSpent(userId, seconds) {
+    if (!userId || seconds <= 0) return;
+    return await apiPost(`/api/users/${userId}/time-spent`, { seconds });
 }
