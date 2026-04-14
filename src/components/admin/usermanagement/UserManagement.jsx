@@ -34,14 +34,14 @@ const formatClassName = (name) => {
     const match = name.match(/\d+/)
     if (match) {
         const num = parseInt(match[0])
-        return `Class ${ordinal(num)} Standard`
+        return 'Class ' + ordinal(num) + ' Standard'
     }
-    return name.startsWith('Class') ? name : `Class ${name}`
+    return name.startsWith('Class') ? name : 'Class ' + name
 }
 
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
-    label: `Class ${ordinal(n)}`,
-    value: `${ordinal(n)} Standard`,
+    label: 'Class ' + ordinal(n),
+    value: ordinal(n) + ' Standard',
 }))
 
 const calculateAgeFromDOB = (dob) => {
@@ -59,9 +59,9 @@ const formatTimeSpent = (seconds) => {
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
     const s = seconds % 60
-    if (h > 0) return `${h}h ${m}m`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
+    if (h > 0) return h + 'h ' + m + 'm'
+    if (m > 0) return m + 'm ' + s + 's'
+    return s + 's'
 }
 
 const EMPTY_FORM = {
@@ -108,7 +108,6 @@ export default function UserManagement({ user }) {
         return false
     })
 
-    // ====================== DATA LOADERS ======================
     const loadSchools = useCallback(async () => {
         setLoading(true)
         setApiError(null)
@@ -176,7 +175,6 @@ export default function UserManagement({ user }) {
         }
     }, [activeTab, searchTerm])
 
-    // ====================== EFFECTS ======================
     useEffect(() => {
         setSelectedSchool(null)
         setSelectedClass(null)
@@ -186,7 +184,7 @@ export default function UserManagement({ user }) {
         setClassesData([])
         setStudentsData([])
         if (activeTab === 'student' || activeTab === 'schools') loadSchools()
-        else if (activeTab === 'teacher') { /* TeacherTab handles its own data */ }
+        else if (activeTab === 'teacher') { }
         else loadNonStudentTab()
     }, [activeTab, loadSchools, loadNonStudentTab])
 
@@ -207,7 +205,6 @@ export default function UserManagement({ user }) {
             loadStudents(selectedSchool.id || selectedSchool, selectedClass)
     }, [selectedClass, selectedSchool, activeTab, loadStudents])
 
-    // ====================== NAVIGATION ======================
     const handleBack = () => {
         if (selectedClass) {
             setSelectedClass(null)
@@ -218,7 +215,6 @@ export default function UserManagement({ user }) {
         }
     }
 
-    // ====================== MODAL & FORM ======================
     const generatePassword = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
         let pass = ''
@@ -254,7 +250,7 @@ export default function UserManagement({ user }) {
                 contactName: full.contactName || '',
                 rollNo: full.rollNo || '',
                 loginCount: full.loginCount ?? 0,
-                intervention: full.intervention ?? full.interventionSessionCount ?? 0,
+                intervention: full.interventionSessionCount ?? full.intervention ?? 0,
                 timeSpent: full.timeSpent ?? 0,
             })
         } else {
@@ -275,33 +271,33 @@ export default function UserManagement({ user }) {
         const { name, email, school, rollNo, section, parentName,
             dateOfBirth, password, phoneNumber, parentPhone } = formData
 
-        if (!name?.trim()) errors.name = "Name is required"
+        if (!name?.trim()) errors.name = 'Name is required'
 
         if (activeTab === 'schools') {
-            if (!formData.contactName?.trim()) errors.contactName = "Contact Name is required"
-            if (!email?.trim()) errors.email = "Email is required"
+            if (!formData.contactName?.trim()) errors.contactName = 'Contact Name is required'
+            if (!email?.trim()) errors.email = 'Email is required'
             const dup = schoolsData.find(s => s.name.toLowerCase() === name.trim().toLowerCase() &&
                 (!editingUser || s.id !== editingUser.id))
-            if (dup) errors.name = "School name already exists"
+            if (dup) errors.name = 'School name already exists'
         } else {
-            if (!email?.trim()) errors.email = "Email is required"
-            else if (!email.includes('@')) errors.email = "Invalid email format"
+            if (!email?.trim()) errors.email = 'Email is required'
+            else if (!email.includes('@')) errors.email = 'Invalid email format'
             if (activeTab !== 'student' && !editingUser && !password?.trim())
-                errors.password = "Password is required"
+                errors.password = 'Password is required'
             if (activeTab === 'student') {
-                if (!school?.trim()) errors.school = "School is required"
-                if (!rollNo?.trim()) errors.rollNo = "Roll No is required"
-                if (!formData.class?.trim()) errors.class = "Class is required"
-                if (!section?.trim()) errors.section = "Section is required"
-                if (!parentName?.trim()) errors.parentName = "Parent Name is required"
-                if (!dateOfBirth) errors.dateOfBirth = "Date of Birth is required"
+                if (!school?.trim()) errors.school = 'School is required'
+                if (!rollNo?.trim()) errors.rollNo = 'Roll No is required'
+                if (!formData.class?.trim()) errors.class = 'Class is required'
+                if (!section?.trim()) errors.section = 'Section is required'
+                if (!parentName?.trim()) errors.parentName = 'Parent Name is required'
+                if (!dateOfBirth) errors.dateOfBirth = 'Date of Birth is required'
             }
         }
 
         if (phoneNumber?.trim() && phoneNumber.replace(/\D/g, '').length !== 10)
-            errors.phoneNumber = "Phone number must be 10 digits"
+            errors.phoneNumber = 'Phone number must be 10 digits'
         if (parentPhone?.trim() && parentPhone.replace(/\D/g, '').length !== 10)
-            errors.parentPhone = "Parent phone must be 10 digits"
+            errors.parentPhone = 'Parent phone must be 10 digits'
 
         setValidationErrors(errors)
         return Object.keys(errors).length === 0
@@ -338,7 +334,7 @@ export default function UserManagement({ user }) {
                     section: formData.section || undefined,
                     gender: formData.gender || undefined,
                     loginCount: Number(formData.loginCount) || 0,
-                    intervention: Number(formData.intervention) || 0,
+                    interventionSessionCount: Number(formData.intervention) || 0,
                     timeSpent: Number(formData.timeSpent) || 0,
                 }
                 if (editingUser) await updateUser(editingUser.id, payload)
@@ -347,8 +343,8 @@ export default function UserManagement({ user }) {
 
             setIsModalOpen(false)
             const msg = activeTab === 'student' && !editingUser
-                ? `Student created! Password setup email sent to ${formData.email}`
-                : `${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`
+                ? 'Student created! Password setup email sent to ' + formData.email
+                : (activeTab === 'schools' ? 'School' : 'User') + ' saved successfully!'
             setSuccessMessage(msg)
             setTimeout(() => setSuccessMessage(null), activeTab === 'student' && !editingUser ? 6000 : 3000)
 
@@ -376,7 +372,7 @@ export default function UserManagement({ user }) {
         try {
             if (activeTab === 'schools') await deleteSchool(userToDelete.id)
             else await deleteUser(userToDelete.id)
-            setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} deleted successfully!`)
+            setSuccessMessage((activeTab === 'schools' ? 'School' : 'User') + ' deleted successfully!')
             setTimeout(() => setSuccessMessage(null), 3000)
             setIsDeleteModalOpen(false)
             setUserToDelete(null)
@@ -401,7 +397,7 @@ export default function UserManagement({ user }) {
         setExpandedRow(studentId)
         if (!expandedUserData[studentId]) {
             try {
-                const full = await getStudentDetail(selectedSchool.id || selectedSchool, selectedClass, studentId)
+                const full = await getUserById(studentId)
                 setExpandedUserData(prev => ({ ...prev, [studentId]: full }))
             } catch (err) {
                 console.error('Failed to fetch student detail', err)
@@ -422,20 +418,21 @@ export default function UserManagement({ user }) {
     })
 
     const addButtonLabels = {
-        student: "Add Students",
-        school_admin: "Add School Admins",
-        psychologist: "Add Psychologists",
-        content_admin: "Add Content Admins",
-        schools: "Add School",
-        teacher: "Add Teacher",
+        student: 'Add Students',
+        school_admin: 'Add School Admins',
+        psychologist: 'Add Psychologists',
+        content_admin: 'Add Content Admins',
+        schools: 'Add School',
+        teacher: 'Add Teacher',
     }
+
     const roleTitles = {
-        student: "Student",
-        school_admin: "School Admin",
-        psychologist: "Psychologist",
-        content_admin: "Content Admin",
-        schools: "School",
-        teacher: "Teacher",
+        student: 'Student',
+        school_admin: 'School Admin',
+        psychologist: 'Psychologist',
+        content_admin: 'Content Admin',
+        schools: 'School',
+        teacher: 'Teacher',
     }
 
     return (
@@ -475,7 +472,7 @@ export default function UserManagement({ user }) {
                         <button
                             key={role.id}
                             onClick={() => setActiveTab(role.id)}
-                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === role.id ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                            className={'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (activeTab === role.id ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300')}
                         >
                             {role.label}
                         </button>
@@ -495,9 +492,11 @@ export default function UserManagement({ user }) {
                                 </button>
                             )}
                             <h3 className="text-lg font-medium text-gray-900">
-                                {!selectedSchool ? `Manage ${roles.find(r => r.id === activeTab)?.label}`
-                                    : !selectedClass ? `${selectedSchool.name || selectedSchool} Classes`
-                                        : `${selectedSchool.name || selectedSchool} — ${formatClassName(selectedClass)}`}
+                                {!selectedSchool
+                                    ? 'Manage ' + (roles.find(r => r.id === activeTab)?.label || '')
+                                    : !selectedClass
+                                        ? (selectedSchool.name || selectedSchool) + ' Classes'
+                                        : (selectedSchool.name || selectedSchool) + ' — ' + formatClassName(selectedClass)}
                             </h3>
                         </div>
                         <button
@@ -597,14 +596,16 @@ export default function UserManagement({ user }) {
                                                         <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleRow(u.id)}>
                                                             <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                                                 <div className="flex items-center gap-2">
-                                                                    {expandedRow === u.id ? <ChevronDownIcon className="w-4 h-4 text-purple-500" /> : <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
+                                                                    {expandedRow === u.id
+                                                                        ? <ChevronDownIcon className="w-4 h-4 text-purple-500" />
+                                                                        : <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
                                                                     {u.name}
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                    {full.section ? `Section ${full.section}` : '—'}
+                                                                    {full.section ? 'Section ' + full.section : '—'}
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">
@@ -616,43 +617,48 @@ export default function UserManagement({ user }) {
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-center" onClick={e => e.stopPropagation()}>
                                                                 <div className="flex items-center justify-center gap-3">
-                                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
-                                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800">
+                                                                        <PencilIcon className="w-5 h-5" />
+                                                                    </button>
+                                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-600 hover:text-red-800">
+                                                                        <TrashIcon className="w-5 h-5" />
+                                                                    </button>
                                                                 </div>
                                                             </td>
                                                         </tr>
+
+                                                        {/* Expanded Row — all 5 fields in one line */}
                                                         {expandedRow === u.id && (
                                                             <tr className="bg-gray-50">
                                                                 <td colSpan={5} className="px-8 py-4">
-                                                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                                                                        {/* Gender (from second code) */}
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
-                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                                                {full.gender || '—'}
-                                                                            </span>
+                                                                    {expandedUserData[u.id] ? (
+                                                                        <div className="grid grid-cols-5 gap-4">
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].gender || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].rollNo || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].loginCount ?? 0}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].interventionSessionCount ?? 0}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(expandedUserData[u.id].timeSpent)}</p>
+                                                                            </div>
                                                                         </div>
-                                                                        {/* Roll No */}
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
+                                                                    ) : (
+                                                                        <div className="flex justify-center py-4">
+                                                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
                                                                         </div>
-                                                                        {/* Login Count */}
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.loginCount ?? 0}</p>
-                                                                        </div>
-                                                                        {/* Intervention (fixed / merged from first code) */}
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention Sessions</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.interventionSessionCount ?? full.intervention ?? 0}</p>
-                                                                        </div>
-                                                                        {/* Time Spent */}
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(full.timeSpent)}</p>
-                                                                        </div>
-                                                                    </div>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         )}
@@ -669,7 +675,7 @@ export default function UserManagement({ user }) {
                                 </div>
                             )}
 
-                            {/* Schools Table (with edit button added from first code) */}
+                            {/* Schools Table */}
                             {activeTab === 'schools' && (
                                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -689,16 +695,10 @@ export default function UserManagement({ user }) {
                                                         <td className="px-6 py-4 text-sm text-gray-500">{school.studentCount || 0}</td>
                                                         <td className="px-6 py-4 text-sm text-center">
                                                             <div className="flex items-center justify-center gap-3">
-                                                                <button
-                                                                    onClick={() => handleOpenModal(school)}
-                                                                    className="text-indigo-600 hover:text-indigo-800"
-                                                                >
+                                                                <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800">
                                                                     <PencilIcon className="w-5 h-5" />
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteUser(school)}
-                                                                    className="text-red-600 hover:text-red-800"
-                                                                >
+                                                                <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800">
                                                                     <TrashIcon className="w-5 h-5" />
                                                                 </button>
                                                             </div>
@@ -757,7 +757,7 @@ export default function UserManagement({ user }) {
                                                 type="text"
                                                 value={formData.name}
                                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                                className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                                                className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.name ? 'border-red-500' : 'border-gray-300')}
                                             />
                                             {validationErrors.name && <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>}
                                         </div>
@@ -771,7 +771,7 @@ export default function UserManagement({ user }) {
                                                             type="text"
                                                             value={formData.contactName}
                                                             onChange={e => setFormData({ ...formData, contactName: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.contactName ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.contactName ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.contactName && <p className="text-red-500 text-xs mt-1">{validationErrors.contactName}</p>}
                                                     </div>
@@ -781,7 +781,7 @@ export default function UserManagement({ user }) {
                                                             type="email"
                                                             value={formData.email}
                                                             onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
@@ -808,7 +808,6 @@ export default function UserManagement({ user }) {
                                                         </p>
                                                     </div>
                                                 )}
-
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Date of Birth</label>
@@ -816,7 +815,7 @@ export default function UserManagement({ user }) {
                                                             type="date"
                                                             value={formData.dateOfBirth}
                                                             onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
                                                     </div>
@@ -825,7 +824,7 @@ export default function UserManagement({ user }) {
                                                         <select
                                                             value={formData.class}
                                                             onChange={e => setFormData({ ...formData, class: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.class ? 'border-red-500' : 'border-gray-300')}
                                                         >
                                                             <option value="">Select Class</option>
                                                             {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -833,14 +832,13 @@ export default function UserManagement({ user }) {
                                                         {validationErrors.class && <p className="text-red-500 text-xs mt-1">{validationErrors.class}</p>}
                                                     </div>
                                                 </div>
-
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Section</label>
                                                         <select
                                                             value={formData.section}
                                                             onChange={e => setFormData({ ...formData, section: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.section ? 'border-red-500' : 'border-gray-300')}
                                                         >
                                                             <option value="">Select Section</option>
                                                             {['A', 'B', 'C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
@@ -853,12 +851,11 @@ export default function UserManagement({ user }) {
                                                             type="text"
                                                             value={formData.rollNo}
                                                             onChange={e => setFormData({ ...formData, rollNo: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.rollNo ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.rollNo ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
                                                     </div>
                                                 </div>
-
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Gender</label>
@@ -879,12 +876,11 @@ export default function UserManagement({ user }) {
                                                             type="email"
                                                             value={formData.email}
                                                             onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                 </div>
-
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Name</label>
@@ -892,7 +888,7 @@ export default function UserManagement({ user }) {
                                                             type="text"
                                                             value={formData.parentName}
                                                             onChange={e => setFormData({ ...formData, parentName: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentName ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentName ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
                                                     </div>
@@ -903,19 +899,18 @@ export default function UserManagement({ user }) {
                                                             value={formData.parentPhone}
                                                             onChange={e => setFormData({ ...formData, parentPhone: e.target.value })}
                                                             placeholder="10-digit number"
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
                                                     </div>
                                                 </div>
-
                                                 {(user?.role === 'SUPER_ADMIN' || editingUser) && (
                                                     <div>
                                                         <label className="block text-sm font-medium">School</label>
                                                         <select
                                                             value={formData.school}
                                                             onChange={e => setFormData({ ...formData, school: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.school ? 'border-red-500' : 'border-gray-300')}
                                                         >
                                                             <option value="">Select School</option>
                                                             {schoolsForFormRef.current.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -923,8 +918,6 @@ export default function UserManagement({ user }) {
                                                         {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
                                                     </div>
                                                 )}
-
-                                                {/* === INTERVENTION + ADMIN FIELDS (fixed / merged from first code) === */}
                                                 <div className="grid grid-cols-3 gap-4 pt-2 border-t">
                                                     <div>
                                                         <label className="block text-sm font-medium">Login Count</label>
@@ -937,7 +930,7 @@ export default function UserManagement({ user }) {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium">Intervention Sessions</label>
+                                                        <label className="block text-sm font-medium">Intervention</label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -947,7 +940,7 @@ export default function UserManagement({ user }) {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium">Time Spent (seconds)</label>
+                                                        <label className="block text-sm font-medium">Time Spent (s)</label>
                                                         <input
                                                             type="number"
                                                             min="0"
@@ -967,7 +960,7 @@ export default function UserManagement({ user }) {
                                                             type="email"
                                                             value={formData.email}
                                                             onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
@@ -988,13 +981,9 @@ export default function UserManagement({ user }) {
                                                             type="text"
                                                             value={formData.password}
                                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                                            className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
                                                         />
-                                                        <button
-                                                            type="button"
-                                                            onClick={generatePassword}
-                                                            className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300"
-                                                        >
+                                                        <button type="button" onClick={generatePassword} className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">
                                                             Generate
                                                         </button>
                                                     </div>
@@ -1018,20 +1007,13 @@ export default function UserManagement({ user }) {
                                     </div>
 
                                     <div className="mt-6 flex justify-end gap-3">
-                                        <button
-                                            onClick={() => setIsModalOpen(false)}
-                                            className="px-4 py-2 text-gray-600"
-                                        >
-                                            Cancel
-                                        </button>
+                                        <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
                                         <button
                                             onClick={handleSaveUser}
                                             disabled={saving}
                                             className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50"
                                         >
-                                            {saving
-                                                ? 'Saving...'
-                                                : (activeTab === 'student' && !editingUser ? 'Create & Send Email' : 'Save')}
+                                            {saving ? 'Saving...' : (activeTab === 'student' && !editingUser ? 'Create & Send Email' : 'Save')}
                                         </button>
                                     </div>
                                 </div>
@@ -1050,17 +1032,8 @@ export default function UserManagement({ user }) {
                                     Are you sure you want to delete <strong>{userToDelete?.name}</strong>? This action cannot be undone.
                                 </p>
                                 <div className="mt-6 flex gap-3">
-                                    <button
-                                        onClick={() => setIsDeleteModalOpen(false)}
-                                        className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-md"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={confirmDelete}
-                                        disabled={saving}
-                                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50"
-                                    >
+                                    <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 px-4 py-2 text-gray-600 bg-gray-100 rounded-md">Cancel</button>
+                                    <button onClick={confirmDelete} disabled={saving} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md disabled:opacity-50">
                                         {saving ? 'Deleting...' : 'Delete'}
                                     </button>
                                 </div>
