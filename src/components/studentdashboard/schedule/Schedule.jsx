@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { addTask, editTask, deleteTask, toggleTaskComplete, getRecommendations } from '../../../api/scheduleApi.js'
 import {
     CalendarIcon, PlusIcon, TrashIcon, CheckCircleIcon,
     ArrowRightIcon, ChevronDownIcon, ChevronUpIcon,
     PencilIcon, ExclamationTriangleIcon,
-    LightBulbIcon, ClockIcon, AcademicCapIcon, XMarkIcon,
+    LightBulbIcon, ClockIcon, AcademicCapIcon, SparklesIcon,
+    BoltIcon,
 } from '@heroicons/react/24/outline'
 
 function TimeSelect({ value, onChange, label }) {
@@ -48,81 +49,52 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     const [editError, setEditError]         = useState('')
     const [addWarnings, setAddWarnings]     = useState([])
     const [editWarnings, setEditWarnings]   = useState([])
+    const [dayWarnings, setDayWarnings]     = useState([]) // soft warnings shown on the plan inline
     const [isSaving, setIsSaving]           = useState(false)
 
     // Recommendations
     const [blockedWindows, setBlockedWindows] = useState([])
     const [upcomingExams, setUpcomingExams]   = useState([])
     const [suggestions, setSuggestions]       = useState([])
-    const [showSuggestions, setShowSuggestions] = useState(true)
     const [recsLoading, setRecsLoading]       = useState(false)
+    const [recsTrigger, setRecsTrigger]       = useState(0) // increment to force suggestion refresh
 
-    // Suggestion time-picker modal
-    const [suggestionModal, setSuggestionModal]   = useState(null)
-    const [suggestionError, setSuggestionError]   = useState('')
-    const [suggestionSaving, setSuggestionSaving] = useState(false)
+    // Per-suggestion state: 'idle' | 'adding' | 'added' | 'error'
+    const [suggestionStates, setSuggestionStates] = useState({})
+    // If no free slot found, show inline time picker for that suggestion
+    const [suggestionTimePicker, setSuggestionTimePicker] = useState(null) // { index, startTime, endTime, error }
 
+
+    // Colour scheme per taskType from backend
+    const suggestionTypeStyle = {
+        STUDY:   { bar: 'bg-blue-400',    card: 'bg-blue-50 border-blue-100 hover:border-blue-300',         badge: 'bg-blue-100 text-blue-700 border-blue-200',         btn: 'bg-blue-500 hover:bg-blue-600',    picker: 'border-blue-200' },
+        WELLNESS:{ bar: 'bg-emerald-400', card: 'bg-emerald-50 border-emerald-100 hover:border-emerald-300', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', btn: 'bg-emerald-500 hover:bg-emerald-600', picker: 'border-emerald-200' },
+        OTHER:   { bar: 'bg-violet-400',  card: 'bg-violet-50 border-violet-100 hover:border-violet-300',    badge: 'bg-violet-100 text-violet-700 border-violet-200',    btn: 'bg-violet-500 hover:bg-violet-600',  picker: 'border-violet-200' },
+    }
+    const getSuggestionStyle = (taskType) => suggestionTypeStyle[taskType] || suggestionTypeStyle.OTHER
     const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FETCH RECOMMENDATIONS WITH DEBUG LOGGING
-    // ═══════════════════════════════════════════════════════════════════════
+    // ── Fetch Recommendations ────────────────────────────────────────────────
     useEffect(() => {
         if (!user?.id) return
-        
-        console.log('═══════════════════════════════════════════════════════════')
-        console.log('🔍 FRONTEND: Fetching recommendations')
-        console.log('   Student ID:', user.id)
-        console.log('   Student Name:', user.name || user.username)
-        console.log('   Student Class:', user.className || user.class_name)
-        console.log('   Student School:', user.schoolId || user.school_id)
-        console.log('   Active Day:', activeDay)
-        console.log('═══════════════════════════════════════════════════════════')
-        
         setRecsLoading(true)
         getRecommendations(user.id, activeDay)
             .then(data => {
-                console.log('📦 RESPONSE RECEIVED:', data)
-                console.log('📚 Blocked Windows:', data?.blockedWindows?.length || 0)
-                if (data?.blockedWindows?.length > 0) {
-                    console.log('   Details:', data.blockedWindows)
-                }
-                console.log('📝 Upcoming Exams:', data?.upcomingExams?.length || 0)
-                if (data?.upcomingExams?.length > 0) {
-                    data.upcomingExams.forEach(e => {
-                        console.log(`   - ${e.subjectName} on ${e.examDate} (${e.daysRemaining} days, ${e.urgency})`)
-                    })
-                } else {
-                    console.warn('   ⚠️  NO EXAMS FOUND IN RESPONSE')
-                }
-                console.log('💡 Suggestions:', data?.suggestions?.length || 0)
-                if (data?.suggestions?.length > 0) {
-                    data.suggestions.forEach(s => {
-                        console.log(`   - ${s.title} (score: ${s.score}, reason: ${s.reasonLabel})`)
-                    })
-                } else {
-                    console.warn('   ⚠️  NO SUGGESTIONS FOUND IN RESPONSE')
-                }
-                console.log('═══════════════════════════════════════════════════════════')
-                
                 setBlockedWindows(data?.blockedWindows || [])
                 setUpcomingExams(data?.upcomingExams   || [])
                 setSuggestions(data?.suggestions       || [])
+                setSuggestionStates({})
+                setSuggestionTimePicker(null)
             })
-            .catch((err) => { 
-                console.error('═══════════════════════════════════════════════════════════')
-                console.error('❌ FETCH FAILED')
-                console.error('   Error:', err)
-                console.error('   Message:', err.message)
-                console.error('   Response:', err.response?.data)
-                console.error('═══════════════════════════════════════════════════════════')
+            .catch(() => {
                 setBlockedWindows([])
                 setUpcomingExams([])
                 setSuggestions([])
             })
             .finally(() => setRecsLoading(false))
-    }, [user?.id, activeDay])
+    }, [user?.id, activeDay, recsTrigger])
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
     const normaliseTask = (task) => {
         if (task.startTime) return task
         const raw = task.time || ''
@@ -151,16 +123,32 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
         return false
     }
 
-    const nextDay  = days[(days.indexOf(activeDay)+1)%7]
+    // ── Frontend study cap (mirrors backend class-based caps) ──────────────
+    const getMaxDailyStudyMins = (className, weekend) => {
+        if (!className) return 120
+        const lc = className.toLowerCase()
+        const n = parseInt((lc.match(/\d{1,2}/) || ['8'])[0]) || 8
+        const caps = weekend
+            ? [[2,90],[4,120],[6,180],[8,240],[10,300],[12,360]]
+            : [[2,60],[4,90],[6,120],[8,180],[10,240],[12,300]]
+        for (const [max, mins] of caps) if (n <= max) return mins
+        return 300
+    }
+    const maxDailyStudyMins = getMaxDailyStudyMins(
+        user?.className,
+        activeDay === 'Saturday' || activeDay === 'Sunday'
+    )
+
+    const nextDay   = days[(days.indexOf(activeDay)+1)%7]
     const normTasks = tasks[activeDay].map(normaliseTask)
-    const totalT   = normTasks.length
-    const doneT    = normTasks.filter(t => t.completed).length
-    const pct      = totalT > 0 ? Math.round((doneT/totalT)*100) : 0
+    const totalT    = normTasks.length
+    const doneT     = normTasks.filter(t => t.completed).length
+    const pct       = totalT > 0 ? Math.round((doneT/totalT)*100) : 0
     const incomplete = tasks[activeDay].filter(t => !t.completed).length
-    const sorted   = [...normTasks].sort((a,b) => a.startTime.localeCompare(b.startTime))
-    const tMins    = totalMins()
-    const tHrs     = Math.floor(tMins/60)
-    const tMin     = tMins%60
+    const sorted    = [...normTasks].sort((a,b) => a.startTime.localeCompare(b.startTime))
+    const tMins     = totalMins()
+    const tHrs      = Math.floor(tMins/60)
+    const tMin      = tMins%60
 
     const typeColors = {
         Study:    { bg:'bg-blue-500',    light:'bg-blue-100',    text:'text-blue-700',    border:'border-blue-200' },
@@ -173,69 +161,102 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
         NORMAL:   'bg-green-100 text-green-700 border-green-200',
     }
 
-    const isValidConflict = (id) => {
-        const t = conflictTimes[id]; if (!t) return false
-        if (toMins(t.endTime) <= toMins(t.startTime)) return false
-        if (hasOverlap(nextDay, t.startTime, t.endTime)) return false
-        if (pushNonConflicts.some(x => toMins(t.startTime)<toMins(x.endTime)&&toMins(t.endTime)>toMins(x.startTime))) return false
-        if (pushConflicts.some(x => { if(x.id===id) return false; const o=conflictTimes[x.id]; if(!o) return false; return toMins(t.startTime)<toMins(o.endTime)&&toMins(t.endTime)>toMins(o.startTime) })) return false
-        return true
-    }
-
-    const findFreeSlot = (durationMins) => {
+    // ── Find a free slot for a suggestion ────────────────────────────────────
+    const findFreeSlot = useCallback((durationMins, taskType = 'STUDY') => {
         const existing = [...normTasks].sort((a,b) => toMins(a.startTime)-toMins(b.startTime))
-        for (let startMins = 7*60; startMins <= 22*60 - durationMins; startMins += 15) {
+        // School hours also count as existing blocks
+        const allBlocks = [
+            ...existing,
+            ...blockedWindows.map(w => ({ startTime: w.startTime, endTime: w.endTime, detectedType: 'school' }))
+        ].sort((a,b) => toMins(a.startTime)-toMins(b.startTime))
+
+        for (let startMins = 6*60; startMins <= 22*60 - durationMins; startMins += 15) {
             const endMins   = startMins + durationMins
             const startTime = `${String(Math.floor(startMins/60)).padStart(2,'0')}:${String(startMins%60).padStart(2,'0')}`
             const endTime   = `${String(Math.floor(endMins/60)).padStart(2,'0')}:${String(endMins%60).padStart(2,'0')}`
             if (isBlockedBySchool(startTime, endTime)) continue
             if (hasOverlap(activeDay, startTime, endTime)) continue
-            const tooClose = existing.some(t => {
-                const gapAfter  = toMins(startTime) - toMins(t.endTime)
-                const gapBefore = toMins(t.startTime) - toMins(endTime)
-                return (gapAfter >= 0 && gapAfter < 10) || (gapBefore >= 0 && gapBefore < 10)
-            })
-            if (tooClose) continue
+            // 10-min gap rule only applies between study sessions
+            if (taskType === 'STUDY') {
+                const studyBlocks = allBlocks.filter(t => t.detectedType?.toLowerCase() === 'study')
+                const tooClose = studyBlocks.some(t => {
+                    const gapAfter  = toMins(startTime) - toMins(t.endTime)
+                    const gapBefore = toMins(t.startTime) - toMins(endTime)
+                    return (gapAfter >= 0 && gapAfter < 10) || (gapBefore >= 0 && gapBefore < 10)
+                })
+                if (tooClose) continue
+            }
             return { startTime, endTime }
         }
         return null
-    }
+    }, [normTasks, blockedWindows, activeDay])
 
-    const openSuggestionModal = (suggestion) => {
-        setSuggestionError('')
+    // ── One-click suggestion add ─────────────────────────────────────────────
+    const handleQuickAdd = async (suggestion, index) => {
+        const key = suggestion.title
         const durationMins = suggestion.estimatedMinutes || 45
-        const slot = findFreeSlot(durationMins)
-        const hrs = Math.floor(durationMins/60)
-        const mins = durationMins%60
-        const fallbackEnd = `${String(9+hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}`
-        setSuggestionModal({
-            suggestion,
-            startTime: slot?.startTime || '09:00',
-            endTime:   slot?.endTime   || fallbackEnd,
-        })
-    }
+        const slot = findFreeSlot(durationMins, suggestion.taskType)
 
-    const confirmSuggestion = async () => {
-        if (!suggestionModal) return
-        setSuggestionError('')
-        const { suggestion, startTime, endTime } = suggestionModal
-        if (toMins(endTime) <= toMins(startTime)) { setSuggestionError('End time must be after start time.'); return }
-        if (isBlockedBySchool(startTime, endTime)) { setSuggestionError('This slot is blocked by school hours.'); return }
-        if (hasOverlap(activeDay, startTime, endTime)) { setSuggestionError('This slot overlaps with another task.'); return }
-        setSuggestionSaving(true)
+        if (!slot) {
+            // No free slot — show inline time picker
+            const fallbackStart = '15:00'
+            const fallbackEnd   = `${String(15 + Math.floor(durationMins/60)).padStart(2,'0')}:${String(durationMins%60).padStart(2,'0')}`
+            setSuggestionTimePicker({ index, startTime: fallbackStart, endTime: fallbackEnd, error: '' })
+            return
+        }
+
+        setSuggestionStates(p => ({ ...p, [key]: 'adding' }))
         try {
-            const saved = await addTask(user.id, activeDay, suggestion.title, startTime, endTime, '')
+            const saved = await addTask(user.id, activeDay, suggestion.title, slot.startTime, slot.endTime, '')
             setTasks(prev => ({ ...prev, [activeDay]: [...prev[activeDay], { ...saved, completed: false }] }))
-            setSuggestions(prev => prev.filter(s => s.title !== suggestion.title))
-            setSuggestionModal(null)
+            setSuggestions(prev => prev.filter((_, i) => i !== index))
+            setSuggestionStates(p => ({ ...p, [key]: 'added' }))
         } catch (err) {
-            console.error('Failed to add suggestion:', err.message)
-            setSuggestionError(err.message || 'Could not save task. Please try again.')
-        } finally {
-            setSuggestionSaving(false)
+            // Auto-slot was rejected by backend — fall back to manual time picker
+            setSuggestionStates(p => ({ ...p, [key]: 'idle' }))
+            const durationMins = suggestion.estimatedMinutes || 45
+            const fallbackStart = slot?.startTime || '15:00'
+            const fallbackEnd   = slot?.endTime   || `${String(15 + Math.floor(durationMins/60)).padStart(2,'0')}:${String(durationMins%60).padStart(2,'0')}`
+            setSuggestionTimePicker({ index, startTime: fallbackStart, endTime: fallbackEnd, error: err.message || 'Could not auto-schedule. Pick a time manually.' })
         }
     }
 
+    // ── Time-picker fallback confirm ─────────────────────────────────────────
+    const confirmTimePicker = async () => {
+        if (!suggestionTimePicker) return
+        const { index, startTime, endTime } = suggestionTimePicker
+        const suggestion = suggestions[index]
+        const key = suggestion.title
+        if (toMins(endTime) <= toMins(startTime)) {
+            setSuggestionTimePicker(p => ({ ...p, error: 'End time must be after start time.' }))
+            return
+        }
+        if (isBlockedBySchool(startTime, endTime)) {
+            setSuggestionTimePicker(p => ({ ...p, error: 'This slot is blocked by school hours.' }))
+            return
+        }
+        if (hasOverlap(activeDay, startTime, endTime)) {
+            setSuggestionTimePicker(p => ({ ...p, error: 'This slot overlaps with another task.' }))
+            return
+        }
+        setSuggestionStates(p => ({ ...p, [key]: 'adding' }))
+        try {
+            const saved = await addTask(user.id, activeDay, suggestion.title, startTime, endTime, '')
+            setTasks(prev => ({ ...prev, [activeDay]: [...prev[activeDay], { ...saved, completed: false }] }))
+            setSuggestions(prev => prev.filter((_, i) => i !== index))
+            setSuggestionTimePicker(null)
+            setTimeout(() => setRecsTrigger(t => t + 1), 400)
+            if (saved.warnings?.length > 0) {
+                setDayWarnings(saved.warnings)
+                setTimeout(() => setDayWarnings([]), 6000)
+            }
+        } catch (err) {
+            setSuggestionTimePicker(p => ({ ...p, error: err.message || 'Could not save task.' }))
+            setSuggestionStates(p => ({ ...p, [key]: 'idle' }))
+        }
+    }
+
+    // ── CRUD handlers ────────────────────────────────────────────────────────
     const handleAdd = async () => {
         setOverlapError(''); setAddWarnings([])
         if (!newTask.title || !newTask.startTime || !newTask.endTime) return
@@ -247,10 +268,13 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             setTasks(prev => ({ ...prev, [activeDay]: [...prev[activeDay], { ...saved, completed: false }] }))
             if (saved.warnings?.length > 0) {
                 setAddWarnings(saved.warnings)
-                setTimeout(() => { setAddWarnings([]); setShowAddTask(false); setNewTask({ startTime:'09:00', endTime:'10:00', title:'', notes:'' }) }, 3000)
+                setDayWarnings(saved.warnings)
+                setTimeout(() => { setAddWarnings([]); setShowAddTask(false); setNewTask({ startTime:'09:00', endTime:'10:00', title:'', notes:'' }) }, 4000)
+                setTimeout(() => setDayWarnings([]), 8000)
             } else {
                 setNewTask({ startTime:'09:00', endTime:'10:00', title:'', notes:'' }); setShowAddTask(false)
             }
+            setTimeout(() => setRecsTrigger(t => t + 1), 400)
         } catch (err) { setOverlapError(err.message || 'Could not save task. Please try again.') }
         finally { setIsSaving(false) }
     }
@@ -261,6 +285,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             await deleteTask(id)
             setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].filter(t => t.id !== id) }))
             if (expandedTask === id) setExpandedTask(null)
+            setTimeout(() => setRecsTrigger(t => t + 1), 400)
         } catch (err) { console.error('Delete failed:', err.message) }
     }
 
@@ -289,10 +314,21 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].map(t => t.id===editingTask.id ? { ...t, ...saved } : t) }))
             if (saved.warnings?.length > 0) {
                 setEditWarnings(saved.warnings)
-                setTimeout(() => { setEditWarnings([]); setEditingTask(null) }, 3000)
+                setDayWarnings(saved.warnings)
+                setTimeout(() => { setEditWarnings([]); setEditingTask(null) }, 4000)
+                setTimeout(() => setDayWarnings([]), 8000)
             } else { setEditingTask(null) }
         } catch (err) { setEditError(err.message || 'Could not save changes.') }
         finally { setIsSaving(false) }
+    }
+
+    const isValidConflict = (id) => {
+        const t = conflictTimes[id]; if (!t) return false
+        if (toMins(t.endTime) <= toMins(t.startTime)) return false
+        if (hasOverlap(nextDay, t.startTime, t.endTime)) return false
+        if (pushNonConflicts.some(x => toMins(t.startTime)<toMins(x.endTime)&&toMins(t.endTime)>toMins(x.startTime))) return false
+        if (pushConflicts.some(x => { if(x.id===id) return false; const o=conflictTimes[x.id]; if(!o) return false; return toMins(t.startTime)<toMins(o.endTime)&&toMins(t.endTime)>toMins(o.startTime) })) return false
+        return true
     }
 
     const initPush = () => {
@@ -320,6 +356,18 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
     const closePush = () => { setShowPushModal(false); setPushNonConflicts([]); setPushConflicts([]); setConflictTimes({}); setPushError('') }
 
+    // ── Build the merged timeline (tasks + school blocks) ────────────────────
+    const schoolBlocks = blockedWindows.map((w, i) => ({
+        id: `school-${i}`,
+        title: 'School Hours',
+        startTime: w.startTime,
+        endTime: w.endTime,
+        isSchoolBlock: true,
+        completed: false,
+    }))
+
+    const allItems = [...sorted, ...schoolBlocks].sort((a,b) => a.startTime.localeCompare(b.startTime))
+
     return (
         <div className="font-lora relative">
 
@@ -329,7 +377,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 <p className="text-gray-600 font-medium">Plan your week for success and balance</p>
             </div>
 
-            {/* Exam Countdown */}
+            {/* Exam Countdown Pills */}
             {upcomingExams.length > 0 && (
                 <div className="mb-4 flex flex-wrap gap-2">
                     {upcomingExams.slice(0,3).map(exam => (
@@ -341,20 +389,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 </div>
             )}
 
-            {/* Blocked Windows */}
-            {blockedWindows.length > 0 && (
-                <div className="mb-4 bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-2.5 flex items-center gap-2 flex-wrap">
-                    <ClockIcon className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-xs font-bold text-gray-500">School hours blocked:</span>
-                    {blockedWindows.map((w,i) => (
-                        <span key={i} className="text-xs bg-gray-200 text-gray-600 font-bold px-2 py-0.5 rounded-full">
-                            {fmtTime(w.startTime)} – {fmtTime(w.endTime)}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Progress */}
+            {/* Progress Bar */}
             {totalT > 0 && (
                 <div className="mb-6 bg-white border-2 border-violet-200 rounded-2xl p-4">
                     <div className="flex justify-between items-center mb-2">
@@ -378,7 +413,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
             <div className="grid lg:grid-cols-4 gap-6">
 
-                {/* Sidebar */}
+                {/* Sidebar — Day Picker */}
                 <div className="lg:col-span-1 bg-white border-2 border-violet-200 rounded-2xl p-4 h-fit">
                     <div className="space-y-2">
                         {days.map(day => {
@@ -402,46 +437,11 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                     </div>
                 </div>
 
-                {/* Main */}
+                {/* Main — Schedule Card */}
                 <div className="lg:col-span-3 space-y-4">
-
-                    {/* Suggestions Panel */}
-                    {suggestions.length > 0 && (
-                        <div className="bg-white border-2 border-amber-200 rounded-2xl overflow-hidden">
-                            <button onClick={() => setShowSuggestions(p => !p)}
-                                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-amber-50 transition-colors">
-                                <div className="flex items-center gap-2">
-                                    <LightBulbIcon className="w-5 h-5 text-amber-500" />
-                                    <span className="font-black text-gray-800 text-sm">Suggested Tasks</span>
-                                    <span className="text-xs bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">{suggestions.length}</span>
-                                </div>
-                                {showSuggestions ? <ChevronUpIcon className="w-4 h-4 text-gray-400" /> : <ChevronDownIcon className="w-4 h-4 text-gray-400" />}
-                            </button>
-
-                            {showSuggestions && (
-                                <div className="px-4 pb-4 grid sm:grid-cols-2 gap-2">
-                                    {suggestions.map((s,i) => (
-                                        <div key={i} className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-800 truncate">{s.title}</p>
-                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                                    <span className="text-[10px] text-gray-500 font-medium">~{s.estimatedMinutes}min</span>
-                                                    <span className="text-[10px] bg-white border border-amber-200 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">{s.reasonLabel}</span>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => openSuggestionModal(s)}
-                                                className="shrink-0 w-7 h-7 bg-amber-500 text-white rounded-lg flex items-center justify-center hover:bg-amber-600 transition-colors">
-                                                <PlusIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Schedule Card */}
                     <div className="bg-white border-2 border-violet-200 rounded-2xl p-6 min-h-[600px]">
+
+                        {/* Card Header */}
                         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
                             <h2 className="text-2xl font-black text-black">{activeDay}'s Plan</h2>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -457,7 +457,8 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                             </div>
                         </div>
 
-                        {totalT === 0 ? (
+                        {/* Empty State */}
+                        {allItems.length === 0 && suggestions.length === 0 && !recsLoading && (
                             <div className="flex flex-col items-center justify-center h-64 text-center">
                                 <div className="w-16 h-16 bg-violet-50 rounded-full flex items-center justify-center mb-4">
                                     <CalendarIcon className="w-8 h-8 text-violet-300" />
@@ -469,9 +470,41 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     <PlusIcon className="w-4 h-4" />Add your first activity
                                 </button>
                             </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {sorted.map(task => {
+                        )}
+
+                        {/* ── Task List ── */}
+                        {allItems.length > 0 && (
+                            <div className="space-y-3 mb-6">
+                                {allItems.map(task => {
+                                    // ── School block card — identical structure to regular task card ──
+                                    if (task.isSchoolBlock) {
+                                        const dur = getDur(task.startTime, task.endTime)
+                                        return (
+                                            <div key={task.id} className="border-2 border-orange-200 rounded-xl bg-white">
+                                                <div className="flex items-center gap-3 p-4">
+                                                    {/* Circle — same size as task checkbox, orange tint */}
+                                                    <div className="flex-shrink-0 w-8 h-8 rounded-full border-2 border-orange-300 bg-white flex items-center justify-center">
+                                                        <ClockIcon className="w-4 h-4 text-orange-400" />
+                                                    </div>
+                                                    {/* Accent bar — orange */}
+                                                    <div className="w-1 h-10 rounded-full flex-shrink-0 bg-orange-400" />
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <h3 className="font-bold text-lg text-black">School Hours</h3>
+                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                {dur && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{dur}</span>}
+                                                                <span className="text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide bg-orange-100 text-orange-600">School</span>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm font-medium mt-0.5 text-gray-500">{fmtTime(task.startTime)} → {fmtTime(task.endTime)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+
+                                    // ── Regular task card ──
                                     const detectedType = task.detectedType
                                         ? task.detectedType.charAt(0).toUpperCase()+task.detectedType.slice(1).toLowerCase()
                                         : 'Other'
@@ -480,18 +513,11 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     const dur     = getDur(task.startTime, task.endTime)
                                     const isExp   = expandedTask === task.id
                                     const hasNote = task.notes?.trim().length > 0
-                                    const blocked = isBlockedBySchool(task.startTime, task.endTime)
                                     return (
                                         <div key={task.id}
-                                            className={`border-2 rounded-xl transition-all duration-300 ${blocked?'bg-gray-50 border-gray-300 opacity-60':task.completed?`bg-white ${colors.border}`:'bg-gray-50 border-gray-300'}`}>
-                                            {blocked && (
-                                                <div className="px-4 pt-2 pb-0 flex items-center gap-1">
-                                                    <ClockIcon className="w-3 h-3 text-gray-400" />
-                                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">School hours</span>
-                                                </div>
-                                            )}
-                                            <div className="group flex items-center gap-3 p-4 cursor-pointer hover:opacity-90" onClick={() => !blocked && toggleDone(task.id)}>
-                                                <button onClick={e => { e.stopPropagation(); if(!blocked) toggleDone(task.id) }}
+                                            className={`border-2 rounded-xl transition-all duration-300 ${task.completed?`bg-white ${colors.border}`:'bg-gray-50 border-gray-300'}`}>
+                                            <div className="group flex items-center gap-3 p-4 cursor-pointer hover:opacity-90" onClick={() => toggleDone(task.id)}>
+                                                <button onClick={e => { e.stopPropagation(); toggleDone(task.id) }}
                                                     className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.completed?'bg-green-500 border-green-500 text-white':'border-gray-300 bg-white opacity-70 group-hover:opacity-100'}`}>
                                                     {task.completed && <CheckCircleIcon className="w-5 h-5" />}
                                                 </button>
@@ -530,68 +556,177 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                 })}
                             </div>
                         )}
+
+                        {/* ── Soft Warning Banner ── */}
+                        {dayWarnings.length > 0 && (
+                            <div className="mb-4 space-y-2">
+                                {dayWarnings.map((w, i) => (
+                                    <div key={i} className="flex items-start gap-3 px-4 py-3 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                                        <span className="text-amber-500 text-base flex-shrink-0 mt-0.5">⚠️</span>
+                                        <p className="text-sm font-medium text-amber-700 leading-snug">{w.replace(/^⚠\s*/, '')}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── AI Planner Section ── */}
+                        {(recsLoading || suggestions.length > 0) && (() => {
+                            const filteredSuggestions = recsLoading ? [] : suggestions.filter(s => {
+                                const alreadyAdded = normTasks.some(t => t.title?.toLowerCase() === s.title?.toLowerCase())
+                                if (alreadyAdded) return false
+                                if (s.taskType === 'STUDY') {
+                                    const studyTasksToday = normTasks.filter(t => t.detectedType?.toLowerCase() === 'study')
+                                    if (studyTasksToday.length >= 3) return false
+                                    const studyMinsToday = studyTasksToday.reduce((sum, t) => sum + Math.max(0, toMins(t.endTime) - toMins(t.startTime)), 0)
+                                    if (studyMinsToday + (s.estimatedMinutes || 45) > maxDailyStudyMins) return false
+                                }
+                                return findFreeSlot(s.estimatedMinutes || 45, s.taskType) !== null
+                            })
+
+                            return (
+                                <div className="mt-2 rounded-2xl overflow-hidden border border-violet-100 shadow-sm">
+                                    {/* AI Header Bar */}
+                                    <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                                    <SparklesIcon className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-black text-sm tracking-wide">AI Study Planner</p>
+                                                    <p className="text-violet-200 text-[11px] font-medium">Personalised suggestions for {activeDay}</p>
+                                                </div>
+                                            </div>
+                                            {!recsLoading && filteredSuggestions.length > 0 && (
+                                                <span className="bg-white/20 text-white text-xs font-black px-2.5 py-1 rounded-full backdrop-blur-sm">
+                                                    {filteredSuggestions.length} task{filteredSuggestions.length > 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Body */}
+                                    <div className="bg-gradient-to-b from-violet-50/60 to-white px-4 py-4 space-y-2">
+
+                                        {/* Loading state */}
+                                        {recsLoading && (
+                                            <div className="flex items-center gap-3 py-4 justify-center">
+                                                <div className="flex gap-1">
+                                                    <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
+                                                    <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
+                                                    <div className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                                                </div>
+                                                <span className="text-sm text-violet-500 font-medium">Analysing your schedule...</span>
+                                            </div>
+                                        )}
+
+                                        {/* Suggestion Cards */}
+                                        {filteredSuggestions.map((s, i) => {
+                                            const state = suggestionStates[s.title] || 'idle'
+                                            const isPickerOpen = suggestionTimePicker?.index === i
+                                            const style = getSuggestionStyle(s.taskType)
+                                            const typeEmoji = s.taskType === 'WELLNESS' ? '🧘' : s.taskType === 'OTHER' ? '📋' : '📚'
+                                            const typeLabel = s.taskType === 'WELLNESS' ? 'Wellness' : s.taskType === 'OTHER' ? 'Other' : 'Study'
+
+                                            return (
+                                                <div key={s.title} className="group">
+                                                    <div className={`flex items-center gap-3 rounded-xl px-4 py-3 border-2 transition-all duration-200 ${
+                                                        state === 'added'  ? 'bg-green-50 border-green-200' :
+                                                        state === 'error'  ? 'bg-red-50 border-red-200' :
+                                                        isPickerOpen       ? 'bg-white border-violet-300 shadow-sm' :
+                                                                             'bg-white border-gray-100 hover:border-violet-200 hover:shadow-sm'
+                                                    }`}>
+                                                        {/* Type icon */}
+                                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${
+                                                            s.taskType === 'WELLNESS' ? 'bg-emerald-100' :
+                                                            s.taskType === 'OTHER'    ? 'bg-violet-100' :
+                                                                                        'bg-blue-100'
+                                                        }`}>
+                                                            {typeEmoji}
+                                                        </div>
+
+                                                        {/* Info */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-sm font-bold truncate ${state === 'added' ? 'text-green-700' : 'text-gray-800'}`}>
+                                                                {state === 'added' ? '✓ Added!' : s.title}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                                <span className="text-[10px] text-gray-400 font-medium">~{s.estimatedMinutes}min</span>
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${style.badge}`}>{typeLabel}</span>
+                                                                <span className="text-[10px] text-gray-400">·</span>
+                                                                <span className="text-[10px] text-gray-500 font-medium italic">{s.reasonLabel}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Add Button */}
+                                                        {state === 'adding' && (
+                                                            <div className="w-16 h-8 flex items-center justify-center">
+                                                                <div className="w-4 h-4 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                                                            </div>
+                                                        )}
+                                                        {state === 'added' && (
+                                                            <div className="w-16 h-8 bg-green-500 rounded-xl flex items-center justify-center">
+                                                                <CheckCircleIcon className="w-4 h-4 text-white" />
+                                                            </div>
+                                                        )}
+                                                        {(state === 'idle' || state === 'error') && !isPickerOpen && (
+                                                            <button
+                                                                onClick={() => handleQuickAdd(s, i)}
+                                                                className="shrink-0 flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors shadow-sm">
+                                                                <PlusIcon className="w-3.5 h-3.5" />
+                                                                Add
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Inline Time Picker */}
+                                                    {isPickerOpen && (
+                                                        <div className="mx-1 mt-1 bg-violet-50 border-2 border-violet-200 rounded-xl p-4">
+                                                            <p className="text-xs text-violet-600 font-bold mb-3">📅 Pick a time for "{s.title}"</p>
+                                                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                                                <TimeSelect label="Start Time" value={suggestionTimePicker.startTime}
+                                                                    onChange={v => setSuggestionTimePicker(p => ({ ...p, startTime: v, error: '' }))} />
+                                                                <TimeSelect label="End Time" value={suggestionTimePicker.endTime}
+                                                                    onChange={v => setSuggestionTimePicker(p => ({ ...p, endTime: v, error: '' }))} />
+                                                            </div>
+                                                            {suggestionTimePicker.error && (
+                                                                <p className="text-xs text-red-500 font-medium mb-2">⚠️ {suggestionTimePicker.error}</p>
+                                                            )}
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => setSuggestionTimePicker(null)}
+                                                                    className="flex-1 py-2 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-100">Cancel</button>
+                                                                <button onClick={confirmTimePicker}
+                                                                    className="flex-1 py-2 rounded-xl text-sm font-bold bg-violet-600 text-white hover:bg-violet-700 flex items-center justify-center gap-1">
+                                                                    <PlusIcon className="w-3.5 h-3.5" /> Add to Plan
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+
+                                        {/* Footer */}
+                                        {!recsLoading && filteredSuggestions.length === 0 && (
+                                            <div className="text-center py-4">
+                                                <p className="text-sm text-violet-400 font-medium">✨ All suggestions added for {activeDay}!</p>
+                                            </div>
+                                        )}
+                                        {!recsLoading && filteredSuggestions.length > 0 && (
+                                            <p className="text-[10px] text-gray-400 text-center pt-1 font-medium">
+                                                Powered by EmpathAI · Based on your exams, goals & schedule
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })()}
+
                     </div>
                 </div>
             </div>
 
-            {/* ── Suggestion Time-Picker Modal ──────────────────────────────────── */}
-            {suggestionModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-sm border-2 border-amber-200 shadow-xl">
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center">
-                                <LightBulbIcon className="w-4 h-4 text-amber-500" />
-                            </div>
-                            <h3 className="text-xl font-black text-black">Add Suggested Task</h3>
-                        </div>
-                        <p className="text-sm text-gray-500 font-medium mb-4 ml-12">
-                            We've picked the next free slot — feel free to adjust!
-                        </p>
-
-                        <div className="mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-                            <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-0.5">Activity</p>
-                            <p className="font-bold text-gray-800">{suggestionModal.suggestion.title}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">~{suggestionModal.suggestion.estimatedMinutes} min · {suggestionModal.suggestion.reasonLabel}</p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <TimeSelect label="Start Time" value={suggestionModal.startTime}
-                                onChange={v => setSuggestionModal(p => ({ ...p, startTime: v }))} />
-                            <TimeSelect label="End Time"   value={suggestionModal.endTime}
-                                onChange={v => setSuggestionModal(p => ({ ...p, endTime: v }))} />
-                        </div>
-
-                        {blockedWindows.length > 0 && (
-                            <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2">
-                                <ClockIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                <p className="text-xs text-gray-500 font-medium">
-                                    Blocked: {blockedWindows.map(w => `${fmtTime(w.startTime)}–${fmtTime(w.endTime)}`).join(', ')}
-                                </p>
-                            </div>
-                        )}
-
-                        {suggestionError && (
-                            <div className="mb-4 bg-red-50 border-2 border-red-200 rounded-xl px-4 py-2 text-red-600 text-sm font-medium">
-                                ⚠️ {suggestionError}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3">
-                            <button onClick={() => { setSuggestionModal(null); setSuggestionError('') }}
-                                className="flex-1 px-4 py-2 rounded-xl font-bold text-gray-500 hover:bg-gray-100">
-                                Cancel
-                            </button>
-                            <button onClick={confirmSuggestion} disabled={suggestionSaving}
-                                className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                <PlusIcon className="w-4 h-4" />
-                                {suggestionSaving ? 'Adding...' : 'Add to Plan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Modal */}
+            {/* ── Edit Modal ── */}
             {editingTask && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm border-2 border-violet-200 shadow-xl">
@@ -633,7 +768,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 </div>
             )}
 
-            {/* Add Modal */}
+            {/* ── Add Activity Modal ── */}
             {showAddTask && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm border-2 border-violet-200 shadow-xl">
@@ -681,7 +816,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                 </div>
             )}
 
-            {/* Push Modal */}
+            {/* ── Push Modal ── */}
             {showPushModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-amber-200 shadow-xl max-h-[90vh] overflow-y-auto">

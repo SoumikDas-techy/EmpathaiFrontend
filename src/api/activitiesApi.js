@@ -5,7 +5,9 @@ import { apiRequest } from './apiClient.js'
 export async function getGoals(studentId) {
     const res = await apiRequest('/api/activities/goals/' + studentId)
     if (!res.ok) throw new Error('Failed to fetch goals (HTTP ' + res.status + ')')
-    return res.json()
+    const json = await res.json()
+    // Unwrap ApiResponse wrapper
+    return json.data || json
 }
 
 export async function saveGoal(studentId, goalText, subjectTag, targetDate) {
@@ -19,7 +21,9 @@ export async function saveGoal(studentId, goalText, subjectTag, targetDate) {
         })
     })
     if (!res.ok) throw new Error('Failed to save goal (HTTP ' + res.status + ')')
-    return res.json()
+    const json = await res.json()
+    // Unwrap ApiResponse wrapper
+    return json.data || json
 }
 
 export async function deleteGoal(studentId, goalId) {

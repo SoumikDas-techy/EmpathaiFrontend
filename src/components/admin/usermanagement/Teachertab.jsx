@@ -21,11 +21,9 @@ const SUBJECT_OPTIONS = [
 ]
 
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => {
-    const ordinal = n => {
-        const s = ['th', 'st', 'nd', 'rd'], v = n % 100
-        return n + (s[(v - 20) % 10] || s[v] || s[0])
-    }
-    return { label: `Class ${ordinal(n)}`, value: `${ordinal(n)} Standard` }
+    const s = ['th', 'st', 'nd', 'rd'], v = n % 100
+    const ordinal = n + (s[(v - 20) % 10] || s[v] || s[0])
+    return { label: `Class ${ordinal}`, value: n }   
 })
 
 const EMPTY_FORM = {
@@ -340,11 +338,14 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
                                         <div className="flex flex-wrap gap-1">
-                                            {(t.classesCovered || []).map(c => (
-                                                <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                    {c}
-                                                </span>
-                                            ))}
+                                            {(t.classesCovered || []).map(c => {
+    const found = CLASS_OPTIONS.find(o => o.value === c)
+    return (
+        <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+            {found ? found.label : `Class ${c}`}
+        </span>
+    )
+})}
                                             {(!t.classesCovered || t.classesCovered.length === 0) &&
                                                 <span className="text-gray-300">—</span>}
                                         </div>

@@ -13,7 +13,6 @@ import {
   CalculatorIcon,
   BeakerIcon,
   GlobeAltIcon,
-  PaperAirplaneIcon,
   ArrowRightOnRectangleIcon,
   AcademicCapIcon,
   CheckCircleIcon,
@@ -21,31 +20,27 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 
-import Assessment from "./studentdashboard/assessment/Assessment";
-import Chatbot from "./studentdashboard/chatbuddy/Chatbot";
 import ChatBuddy from "./studentdashboard/chatbuddy/ChatBuddy";
-import Counselors from "./studentdashboard/counselors/Counselors";
-import Curriculum from "./studentdashboard/curriculum/Curriculum";
 import Activities from "./studentdashboard/activity/Activities";
-
 import Questionnaire from './studentdashboard/assessment/Questionnaire';
 import Schedule from './studentdashboard/schedule/Schedule';
 import { getWeekTasks } from '../api/scheduleApi.js';
-import { fetchMyBadges, fetchStudentBadges } from '../api/rewardsApi.js';
+import { fetchMyBadges } from '../api/rewardsApi.js';
+import { getLatestMood, getLatestSleep } from '../api/wellnessApi.js';
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
 function toDataUrl(imageBase64, imageType) {
   if (!imageBase64) return null
-  return `data:${imageType || 'image/png'};base64,${imageBase64}`
+  return 'data:' + (imageType || 'image/png') + ';base64,' + imageBase64
 }
 
 const BADGE_META = {
-  login:        { emoji: '🔑', color: 'from-blue-400 to-indigo-500',   bg: 'bg-blue-50',   border: 'border-blue-200',   label: 'Login Milestone'        },
-  intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50',  border: 'border-green-200',  label: 'Wellbeing Milestone'    },
-  video:        { emoji: '🎬', color: 'from-pink-400 to-rose-500',     bg: 'bg-pink-50',   border: 'border-pink-200',   label: 'Video Completion'       },
-  module:       { emoji: '📚', color: 'from-orange-400 to-amber-500',  bg: 'bg-orange-50', border: 'border-orange-200', label: 'Module Completion'      },
-  default:      { emoji: '🏅', color: 'from-purple-400 to-violet-500', bg: 'bg-purple-50', border: 'border-purple-200', label: 'Achievement'            },
+  login:        { emoji: '🔑', color: 'from-blue-400 to-indigo-500',   bg: 'bg-blue-50',   border: 'border-blue-200',   label: 'Login Milestone'     },
+  intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50',  border: 'border-green-200',  label: 'Wellbeing Milestone' },
+  video:        { emoji: '🎬', color: 'from-pink-400 to-rose-500',     bg: 'bg-pink-50',   border: 'border-pink-200',   label: 'Video Completion'    },
+  module:       { emoji: '📚', color: 'from-orange-400 to-amber-500',  bg: 'bg-orange-50', border: 'border-orange-200', label: 'Module Completion'   },
+  default:      { emoji: '🏅', color: 'from-purple-400 to-violet-500', bg: 'bg-purple-50', border: 'border-purple-200', label: 'Achievement'         },
 }
 
 function getBadgeMeta(triggerType) {
@@ -55,6 +50,21 @@ function getBadgeMeta(triggerType) {
 function formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const MOOD_EMOJI = {
+  happy: '😊',
+  neutral: '😐',
+  sad: '😔',
+  anxious: '😰',
+  angry: '😡',
+}
+
+const QUALITY_COLOR = {
+  excellent: 'text-green-600 bg-green-50 border-green-200',
+  good: 'text-blue-600 bg-blue-50 border-blue-200',
+  fair: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  poor: 'text-red-600 bg-red-50 border-red-200',
 }
 
 export default function Dashboard({ user, onLogout }) {
@@ -70,20 +80,19 @@ export default function Dashboard({ user, onLogout }) {
     'Monday': [], 'Tuesday': [], 'Wednesday': [],
     'Thursday': [], 'Friday': [], 'Saturday': [], 'Sunday': []
   }
-  
+
   const [tasks, setTasks] = useState(emptyWeek)
   const [tasksLoading, setTasksLoading] = useState(false)
   const [tasksError, setTasksError] = useState('')
 
   const [notifications, setNotifications] = useState([
     { id: 1, title: 'New Math Quiz Available!', time: '10 mins ago', type: 'academic', read: false },
-    { id: 2, title: '7-Day Streak! 🔥', time: '1 hour ago', type: 'achievement', read: false },
+    { id: 2, title: '7-Day Streak!', time: '1 hour ago', type: 'achievement', read: false },
     { id: 3, title: 'Dr. Sarah replied to you', time: '2 hours ago', type: 'social', read: true },
   ])
 
   useEffect(() => {
     if (!user?.id) return
-
     const loadTasks = async () => {
       setTasksLoading(true)
       setTasksError('')
@@ -97,16 +106,13 @@ export default function Dashboard({ user, onLogout }) {
         setTasksLoading(false)
       }
     }
-
     loadTasks()
   }, [user?.id])
 
   const toggleTaskComplete = (day, taskId) => {
     setTasks({
       ...tasks,
-      [day]: tasks[day].map(t =>
-        t.id === taskId ? { ...t, completed: !t.completed } : t
-      )
+      [day]: tasks[day].map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
     })
   }
 
@@ -126,18 +132,15 @@ export default function Dashboard({ user, onLogout }) {
   const performSearch = () => {
     const query = searchQuery.toLowerCase().trim()
     if (!query) return
-
     const tabMap = {
       'overview': 'overview', 'home': 'overview',
-      'chat': 'chatbuddy', 'chatbuddy': 'chatbuddy', 'buddy': 'chatbuddy',
+      'chat': 'chatbuddy', 'chatbuddy': 'chatbuddy',
       'schedule': 'schedule', 'tasks': 'schedule',
       'feelings': 'questionnaire', 'explorer': 'questionnaire',
       'activities': 'activities', 'tools': 'activities',
     }
-
     const match = sidebarItems.find(item => item.name.toLowerCase().includes(query))
     if (match) { setActiveTab(match.id); return }
-
     for (const [keyword, tabId] of Object.entries(tabMap)) {
       if (query.includes(keyword)) { setActiveTab(tabId); return }
     }
@@ -161,10 +164,7 @@ export default function Dashboard({ user, onLogout }) {
 
           <div className="flex-1 max-w-2xl mx-8">
             <div className="relative group">
-              <MagnifyingGlassIcon
-                onClick={performSearch}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 cursor-pointer transition-colors"
-              />
+              <MagnifyingGlassIcon onClick={performSearch} className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 cursor-pointer transition-colors" />
               <input
                 type="text"
                 value={searchQuery}
@@ -174,10 +174,7 @@ export default function Dashboard({ user, onLogout }) {
                 className="w-full pl-12 pr-12 py-2.5 bg-gray-100 border-transparent rounded-2xl focus:bg-white focus:ring-4 focus:ring-purple-100 focus:border-purple-600 outline-none text-sm transition-all shadow-sm"
               />
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600 transition-colors p-1"
-                >
+                <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-600 transition-colors p-1">
                   <XMarkIcon className="w-5 h-5" />
                 </button>
               )}
@@ -193,14 +190,9 @@ export default function Dashboard({ user, onLogout }) {
             <div className="relative group">
               <CalendarIcon
                 onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
-                className={`w-6 h-6 cursor-pointer transition-colors ${tasks['Monday'].every(t => t.completed) && tasks['Monday'].length > 0
-                  ? 'text-green-500'
-                  : 'text-gray-400 hover:text-purple-600'
-                  }`}
+                className={'w-6 h-6 cursor-pointer transition-colors ' + (tasks['Monday'].every(t => t.completed) && tasks['Monday'].length > 0 ? 'text-green-500' : 'text-gray-400 hover:text-purple-600')}
               />
-              <div
-                className={`absolute top-full right-0 mt-4 w-72 bg-white rounded-2xl shadow-xl border-2 border-purple-100 p-4 transition-all duration-300 transform origin-top-right z-50 ${showScheduleDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-              >
+              <div className={'absolute top-full right-0 mt-4 w-72 bg-white rounded-2xl shadow-xl border-2 border-purple-100 p-4 transition-all duration-300 transform origin-top-right z-50 ' + (showScheduleDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none')}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-black text-black text-sm">Today's Focus</h3>
                   <span className="text-xs font-bold text-gray-400">{tasks['Monday'].filter(t => t.completed).length}/{tasks['Monday'].length} done</span>
@@ -211,48 +203,36 @@ export default function Dashboard({ user, onLogout }) {
                   <div className="space-y-2">
                     {tasks['Monday'].map(task => (
                       <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" onClick={() => toggleTaskComplete('Monday', task.id)}>
-                        <button className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                        <button className={'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ' + (task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300')}>
                           {task.completed && <CheckCircleIcon className="w-3 h-3 text-white" />}
                         </button>
                         <div className="flex-1">
-                          <p className={`text-xs font-bold ${task.completed ? 'text-gray-400' : 'text-black'}`}>{task.title}</p>
+                          <p className={'text-xs font-bold ' + (task.completed ? 'text-gray-400' : 'text-black')}>{task.title}</p>
                           <p className="text-[10px] text-gray-400">{task.startTime} → {task.endTime}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-                <button
-                  onClick={() => {
-                    setActiveTab('schedule')
-                    setShowScheduleDropdown(false)
-                  }}
-                  className="w-full mt-3 bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 transition-colors"
-                >
+                <button onClick={() => { setActiveTab('schedule'); setShowScheduleDropdown(false) }} className="w-full mt-3 bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 transition-colors">
                   View Full Schedule
                 </button>
               </div>
             </div>
 
-            <GiftIcon
-              onClick={() => setActiveHeaderModal('rewards')}
-              className="w-6 h-6 text-gray-400 hover:text-primary cursor-pointer transition-colors"
-            />
+            <GiftIcon onClick={() => setActiveHeaderModal('rewards')} className="w-6 h-6 text-gray-400 hover:text-primary cursor-pointer transition-colors" />
 
             <div className="relative group">
               <BellIcon
                 onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                className={`w-6 h-6 cursor-pointer transition-colors ${notifications.some(n => !n.read) ? 'text-primary animate-swing' : 'text-gray-400 hover:text-purple-600'}`}
+                className={'w-6 h-6 cursor-pointer transition-colors ' + (notifications.some(n => !n.read) ? 'text-primary animate-swing' : 'text-gray-400 hover:text-purple-600')}
               />
               {notifications.some(n => !n.read) && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center border-2 border-white animate-bounce-subtle">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">
                   {notifications.filter(n => !n.read).length}
                 </span>
               )}
-
-              <div
-                className={`absolute top-full right-0 mt-4 w-80 bg-white rounded-2xl shadow-2xl border-2 border-purple-100 p-0 transition-all duration-300 transform origin-top-right z-50 overflow-hidden ${showNotificationsDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-              >
+              <div className={'absolute top-full right-0 mt-4 w-80 bg-white rounded-2xl shadow-2xl border-2 border-purple-100 p-0 transition-all duration-300 transform origin-top-right z-50 overflow-hidden ' + (showNotificationsDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none')}>
                 <div className="bg-purple-50 p-4 border-b border-purple-100 flex justify-between items-center">
                   <h3 className="font-black text-dark-navy text-sm">Notifications</h3>
                   <button className="text-[10px] font-bold text-purple-600 hover:underline">Mark all read</button>
@@ -263,10 +243,10 @@ export default function Dashboard({ user, onLogout }) {
                   ) : (
                     <div className="divide-y divide-gray-50">
                       {notifications.map((notification) => (
-                        <div key={notification.id} className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer flex gap-3 ${!notification.read ? 'bg-purple-50/30' : ''}`}>
-                          <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notification.read ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                        <div key={notification.id} className={'p-4 hover:bg-gray-50 transition-colors cursor-pointer flex gap-3 ' + (!notification.read ? 'bg-purple-50/30' : '')}>
+                          <div className={'w-2 h-2 rounded-full mt-1.5 shrink-0 ' + (!notification.read ? 'bg-primary' : 'bg-gray-200')}></div>
                           <div>
-                            <p className={`text-sm ${!notification.read ? 'font-bold text-black' : 'font-medium text-gray-500'}`}>{notification.title}</p>
+                            <p className={'text-sm ' + (!notification.read ? 'font-bold text-black' : 'font-medium text-gray-500')}>{notification.title}</p>
                             <p className="text-[10px] text-gray-400 mt-1">{notification.time}</p>
                           </div>
                         </div>
@@ -301,21 +281,15 @@ export default function Dashboard({ user, onLogout }) {
                 <li key={item.id}>
                   <button
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${activeTab === item.id
-                      ? 'bg-primary/10 text-primary shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                    className={'w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ' + (activeTab === item.id ? 'bg-primary/10 text-primary shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900')}
                   >
-                    <item.icon className={`w-5 h-5 mr-3 transition-colors ${activeTab === item.id ? 'text-primary' : 'text-gray-400'}`} />
+                    <item.icon className={'w-5 h-5 mr-3 transition-colors ' + (activeTab === item.id ? 'text-primary' : 'text-gray-400')} />
                     <span className="font-bold tracking-tight">{item.name}</span>
                   </button>
                 </li>
               ))}
             </ul>
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center px-4 py-3 text-sm font-bold rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all mt-4"
-            >
+            <button onClick={onLogout} className="w-full flex items-center px-4 py-3 text-sm font-bold rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all mt-4">
               <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" />
               <span>Logout</span>
             </button>
@@ -333,7 +307,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             ) : tasksError ? (
               <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-6 py-4 text-red-600 font-medium text-sm text-center">
-                ⚠️ {tasksError}
+                {tasksError}
               </div>
             ) : (
               <Schedule user={user} tasks={tasks} setTasks={setTasks} activeDay={activeDay} setActiveDay={setActiveDay} />
@@ -345,7 +319,7 @@ export default function Dashboard({ user, onLogout }) {
 
         {activeTab === 'overview' && (
           <aside className="w-80 bg-white border-l border-gray-200 p-6">
-            <RightSidebar />
+            <RightSidebar user={user} setActiveTab={setActiveTab} />
           </aside>
         )}
       </div>
@@ -353,12 +327,7 @@ export default function Dashboard({ user, onLogout }) {
       {activeHeaderModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border-2 border-purple-200 rounded-2xl shadow-xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setActiveHeaderModal(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
-            >
-              ×
-            </button>
+            <button onClick={() => setActiveHeaderModal(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">×</button>
             {activeHeaderModal === 'rewards' && <BadgesModal user={user} />}
             {activeHeaderModal === 'notifications' && <NotificationsModal />}
           </div>
@@ -367,7 +336,7 @@ export default function Dashboard({ user, onLogout }) {
     </div>
   )
 
-  // ── Badges Modal ──────────────────────────────────────────────────────────────
+  // ── Badges Modal ──────────────────────────────────────────────────────────
   function BadgesModal({ user }) {
     const [badges, setBadges] = useState([])
     const [loading, setLoading] = useState(true)
@@ -375,24 +344,16 @@ export default function Dashboard({ user, onLogout }) {
     const [activeFilter, setActiveFilter] = useState('all')
 
     useEffect(() => {
-      // CRITICAL FIX: Using fetchMyBadges() which relies on API Client's JWT injection
       const load = async () => {
         try {
           setLoading(true)
           setError('')
-          
-          // No token needed here - apiClient handles it automatically
           const data = await fetchMyBadges()
           setBadges(data || [])
         } catch (e) {
-          console.error('Badge fetch error:', e)
-          if (e.message.includes('Unauthorized')) {
-            setError('Session expired. Please log in again.')
-          } else if (e.message.includes('Forbidden')) {
-            setError('Access denied. Please contact support.')
-          } else {
-            setError('Could not load your badges. Please try again.')
-          }
+          if (e.message.includes('Unauthorized')) setError('Session expired. Please log in again.')
+          else if (e.message.includes('Forbidden')) setError('Access denied. Please contact support.')
+          else setError('Could not load your badges. Please try again.')
         } finally {
           setLoading(false)
         }
@@ -402,12 +363,11 @@ export default function Dashboard({ user, onLogout }) {
 
     const filters = [
       { id: 'all', label: 'All' },
-      { id: 'login', label: '🔑 Login' },
-      { id: 'intervention', label: '💪 Wellbeing' },
+      { id: 'login', label: 'Login' },
+      { id: 'intervention', label: 'Wellbeing' },
     ]
 
     const filtered = activeFilter === 'all' ? badges : badges.filter(b => b.triggerType === activeFilter)
-
     const earnedLoginValues = badges.filter(b => b.triggerType === 'login').map(b => parseInt(b.triggerValue))
     const maxLoginEarned = earnedLoginValues.length > 0 ? Math.max(...earnedLoginValues) : 0
 
@@ -419,14 +379,14 @@ export default function Dashboard({ user, onLogout }) {
           </div>
           <h3 className="text-2xl font-black text-gray-900">Your Badges</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {badges.length === 0 ? 'Earn badges by logging in and completing sessions' : `You've earned ${badges.length} badge${badges.length !== 1 ? 's' : ''} so far!`}
+            {badges.length === 0 ? 'Earn badges by logging in and completing sessions' : 'You have earned ' + badges.length + ' badge' + (badges.length !== 1 ? 's' : '') + ' so far!'}
           </p>
         </div>
 
         {badges.some(b => b.triggerType === 'login') && (
           <div className="mb-6 bg-blue-50 border border-blue-100 rounded-2xl p-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-black text-blue-700 uppercase tracking-wide">🔑 Login Journey</span>
+              <span className="text-xs font-black text-blue-700 uppercase tracking-wide">Login Journey</span>
               <span className="text-xs font-bold text-blue-500">{maxLoginEarned} logins</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -434,8 +394,8 @@ export default function Dashboard({ user, onLogout }) {
                 const earned = earnedLoginValues.includes(m)
                 return (
                   <div key={m} className="flex-1 flex flex-col items-center gap-1">
-                    <div className={`w-full h-2 rounded-full transition-all ${earned ? 'bg-blue-500' : 'bg-blue-100'}`} />
-                    <span className={`text-[9px] font-bold ${earned ? 'text-blue-600' : 'text-blue-200'}`}>{m}</span>
+                    <div className={'w-full h-2 rounded-full transition-all ' + (earned ? 'bg-blue-500' : 'bg-blue-100')} />
+                    <span className={'text-[9px] font-bold ' + (earned ? 'text-blue-600' : 'text-blue-200')}>{m}</span>
                   </div>
                 )
               })}
@@ -446,11 +406,7 @@ export default function Dashboard({ user, onLogout }) {
         {badges.length > 0 && (
           <div className="flex gap-2 mb-5">
             {filters.map(f => (
-              <button
-                key={f.id}
-                onClick={() => setActiveFilter(f.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-purple-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-              >
+              <button key={f.id} onClick={() => setActiveFilter(f.id)} className={'px-3 py-1.5 rounded-full text-xs font-bold transition-all ' + (activeFilter === f.id ? 'bg-purple-600 text-white shadow' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>
                 {f.label}
               </button>
             ))}
@@ -464,16 +420,8 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         ) : error ? (
           <div className="text-center py-8 bg-red-50 rounded-2xl border border-red-100">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <XMarkIcon className="w-6 h-6 text-red-500" />
-            </div>
             <p className="text-sm text-red-600 font-medium mb-2">{error}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Retry
-            </button>
+            <button onClick={() => window.location.reload()} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors">Retry</button>
           </div>
         ) : badges.length === 0 ? (
           <div className="text-center py-12">
@@ -481,34 +429,16 @@ export default function Dashboard({ user, onLogout }) {
               <span className="text-4xl opacity-40">🏅</span>
             </div>
             <h4 className="font-black text-gray-800 mb-2">No badges yet</h4>
-            <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed">
-              Keep logging in and completing your sessions — your first badge is just around the corner!
-            </p>
-            <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                <p className="text-xs font-black text-blue-700 mb-1">🔑 Login Badges</p>
-                <p className="text-[11px] text-blue-500">Log in daily to earn milestones.</p>
-              </div>
-              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                <p className="text-xs font-black text-green-700 mb-1">💪 Wellbeing Badges</p>
-                <p className="text-[11px] text-green-500">Complete intervention sessions.</p>
-              </div>
-            </div>
+            <p className="text-sm text-gray-500 max-w-xs mx-auto leading-relaxed">Keep logging in and completing your sessions to earn your first badge!</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filtered.map((badge) => {
               const meta = getBadgeMeta(badge.triggerType)
               return (
-                <div
-                  key={badge.id}
-                  className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-md transition-shadow`}
-                >
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
-                    {badge.imageBase64
-                      ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
-                      : <span className="text-2xl">{meta.emoji}</span>
-                    }
+                <div key={badge.id} className={'relative rounded-2xl border-2 ' + meta.border + ' ' + meta.bg + ' p-4 flex flex-col items-center text-center gap-2 hover:shadow-md transition-shadow'}>
+                  <div className={'w-14 h-14 rounded-xl bg-gradient-to-br ' + meta.color + ' flex items-center justify-center shadow-md overflow-hidden'}>
+                    {badge.imageBase64 ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" /> : <span className="text-2xl">{meta.emoji}</span>}
                   </div>
                   <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
                   {badge.description && <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>}
@@ -530,10 +460,10 @@ export default function Dashboard({ user, onLogout }) {
   function NotificationsModal() {
     return (
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔔 Notifications</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Notifications</h3>
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {notifications.map((notif) => (
-            <div key={notif.id} className={`p-4 rounded-lg border ${!notif.read ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div key={notif.id} className={'p-4 rounded-lg border ' + (!notif.read ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50')}>
               <div className="flex justify-between items-start mb-2">
                 <h4 className="font-semibold text-gray-900">{notif.title}</h4>
                 {!notif.read && <div className="w-2 h-2 bg-purple-600 rounded-full"></div>}
@@ -548,6 +478,7 @@ export default function Dashboard({ user, onLogout }) {
   }
 }
 
+// ── Overview ──────────────────────────────────────────────────────────────────
 function Overview({ user, setActiveTab }) {
   const [badges, setBadges] = useState([])
   const [badgesLoading, setBadgesLoading] = useState(true)
@@ -558,18 +489,12 @@ function Overview({ user, setActiveTab }) {
       try {
         setBadgesLoading(true)
         setBadgesError('')
-        // CRITICAL FIX: Use fetchMyBadges() - no user.id needed
         const data = await fetchMyBadges()
         setBadges(data || [])
       } catch (err) {
-        console.error('Badge fetch error:', err)
-        if (err.message.includes('Unauthorized')) {
-          setBadgesError('Session expired. Please log in again.')
-        } else if (err.message.includes('Forbidden')) {
-          setBadgesError('Access denied. Please contact support.')
-        } else {
-          setBadgesError('Could not load badges. Please refresh.')
-        }
+        if (err.message.includes('Unauthorized')) setBadgesError('Session expired. Please log in again.')
+        else if (err.message.includes('Forbidden')) setBadgesError('Access denied. Please contact support.')
+        else setBadgesError('Could not load badges. Please refresh.')
       } finally {
         setBadgesLoading(false)
       }
@@ -578,10 +503,10 @@ function Overview({ user, setActiveTab }) {
   }, [])
 
   const achievements = [
-    { title: '7-day study streak', desc: 'Keep it up!', value: '7', icon: '🔥', color: 'bg-orange-100', textColor: 'text-orange-600' },
-    { title: 'Math Master', desc: 'Completed 5 chapters', value: '🎯', icon: '🎯', color: 'bg-primary/10', textColor: 'text-primary' },
-    { title: 'Mindful Learner', desc: '10 sessions done', value: '🧘', icon: '🧘', color: 'bg-blue-100', textColor: 'text-blue-600' },
-    { title: 'Emotion Explorer', desc: 'Top 5% in class', value: '⭐', icon: '⭐', color: 'bg-yellow-100', textColor: 'text-yellow-600' }
+    { title: '7-day study streak', desc: 'Keep it up!', icon: '🔥', color: 'bg-orange-100', textColor: 'text-orange-600' },
+    { title: 'Math Master', desc: 'Completed 5 chapters', icon: '🎯', color: 'bg-primary/10', textColor: 'text-primary' },
+    { title: 'Mindful Learner', desc: '10 sessions done', icon: '🧘', color: 'bg-blue-100', textColor: 'text-blue-600' },
+    { title: 'Emotion Explorer', desc: 'Top 5% in class', icon: '⭐', color: 'bg-yellow-100', textColor: 'text-yellow-600' }
   ]
 
   const subjects = [
@@ -594,7 +519,7 @@ function Overview({ user, setActiveTab }) {
   return (
     <div className="font-lora">
       <div className="mb-10 text-center">
-        <h1 className="text-3xl font-black text-dark-navy mb-1.5 tracking-tight">Welcome back, {(user.name || user.firstName)?.split(' ')[0]}! 🌟</h1>
+        <h1 className="text-3xl font-black text-dark-navy mb-1.5 tracking-tight">Welcome back, {(user.name || user.firstName)?.split(' ')[0]}!</h1>
         <p className="text-base text-gray-500 font-medium tracking-tight">Ready to continue your personalized emotional and academic journey?</p>
       </div>
 
@@ -605,13 +530,13 @@ function Overview({ user, setActiveTab }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {achievements.map((ach, i) => (
             <div key={i} className="group bg-white p-5 rounded-3xl border-2 border-purple-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <div className={`w-12 h-12 ${ach.color} rounded-xl flex items-center justify-center text-xl mb-4 mx-auto group-hover:scale-110 transition-transform`}>
+              <div className={'w-12 h-12 ' + ach.color + ' rounded-xl flex items-center justify-center text-xl mb-4 mx-auto group-hover:scale-110 transition-transform'}>
                 {ach.icon}
               </div>
               <h3 className="text-base font-black text-dark-navy mb-1">{ach.title}</h3>
               <p className="text-[11px] text-gray-500 font-medium">{ach.desc}</p>
               <div className="mt-3 pt-3 border-t border-purple-100 flex items-center justify-between">
-                <span className={`text-[9px] font-black uppercase tracking-widest ${ach.textColor}`}>Achievement</span>
+                <span className={'text-[9px] font-black uppercase tracking-widest ' + ach.textColor}>Achievement</span>
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
               </div>
             </div>
@@ -621,9 +546,8 @@ function Overview({ user, setActiveTab }) {
 
       <div className="mb-10">
         <h2 className="text-lg font-black text-dark-navy mb-5 flex items-center justify-center gap-2">
-          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>🏅 Your Rewards & Badges<span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
+          <span className="w-6 h-1 bg-yellow-300 rounded-full"></span>Your Rewards and Badges<span className="w-6 h-1 bg-yellow-300 rounded-full"></span>
         </h2>
-
         {badgesLoading ? (
           <div className="flex items-center justify-center py-10 gap-3">
             <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
@@ -631,27 +555,17 @@ function Overview({ user, setActiveTab }) {
           </div>
         ) : badgesError ? (
           <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <XMarkIcon className="w-6 h-6 text-red-500" />
-            </div>
             <p className="text-sm font-bold text-red-600 mb-2">{badgesError}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Retry
-            </button>
+            <button onClick={() => window.location.reload()} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors">Retry</button>
           </div>
         ) : badges.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-purple-200 rounded-3xl p-8 text-center">
             <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">🏅</div>
             <h4 className="font-black text-gray-700 mb-1">No badges earned yet</h4>
-            <p className="text-sm text-gray-400 max-w-xs mx-auto leading-relaxed">
-              Keep logging in daily and completing wellbeing sessions to unlock your first badge!
-            </p>
+            <p className="text-sm text-gray-400 max-w-xs mx-auto leading-relaxed">Keep logging in daily and completing wellbeing sessions to unlock your first badge!</p>
             <div className="mt-4 flex justify-center gap-3 text-xs">
-              <span className="bg-blue-50 border border-blue-100 text-blue-600 font-bold px-3 py-1.5 rounded-full">🔑 Login milestones</span>
-              <span className="bg-green-50 border border-green-100 text-green-600 font-bold px-3 py-1.5 rounded-full">💪 Wellbeing sessions</span>
+              <span className="bg-blue-50 border border-blue-100 text-blue-600 font-bold px-3 py-1.5 rounded-full">Login milestones</span>
+              <span className="bg-green-50 border border-green-100 text-green-600 font-bold px-3 py-1.5 rounded-full">Wellbeing sessions</span>
             </div>
           </div>
         ) : (
@@ -659,12 +573,9 @@ function Overview({ user, setActiveTab }) {
             {badges.map((badge) => {
               const meta = getBadgeMeta(badge.triggerType)
               return (
-                <div key={badge.id} className={`relative rounded-2xl border-2 ${meta.border} ${meta.bg} p-4 flex flex-col items-center text-center gap-2 hover:shadow-lg hover:-translate-y-1 transition-all duration-300`}>
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-md overflow-hidden`}>
-                    {badge.imageBase64
-                      ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" />
-                      : <span className="text-2xl">{meta.emoji}</span>
-                    }
+                <div key={badge.id} className={'relative rounded-2xl border-2 ' + meta.border + ' ' + meta.bg + ' p-4 flex flex-col items-center text-center gap-2 hover:shadow-lg hover:-translate-y-1 transition-all duration-300'}>
+                  <div className={'w-14 h-14 rounded-xl bg-gradient-to-br ' + meta.color + ' flex items-center justify-center shadow-md overflow-hidden'}>
+                    {badge.imageBase64 ? <img src={toDataUrl(badge.imageBase64, badge.imageType)} alt={badge.title} className="w-full h-full object-cover" /> : <span className="text-2xl">{meta.emoji}</span>}
                   </div>
                   <h4 className="font-black text-gray-900 text-sm leading-tight">{badge.title}</h4>
                   {badge.description && <p className="text-[11px] text-gray-500 leading-snug">{badge.description}</p>}
@@ -686,16 +597,15 @@ function Overview({ user, setActiveTab }) {
           <h2 className="text-lg font-black text-dark-navy flex items-center gap-2 mb-2">
             <span className="w-6 h-1 bg-purple-200 rounded-full"></span>Ongoing Learning<span className="w-6 h-1 bg-purple-200 rounded-full"></span>
           </h2>
-          <button onClick={() => setActiveTab('curriculum')} className="text-xs font-bold text-purple-600 hover:underline">View all curriculum</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {subjects.slice(0, 2).map((subject, index) => (
-            <div key={index} className={`group bg-white p-5 rounded-3xl border-2 border-purple-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${index === 0 ? 'lg:col-start-2' : ''}`}>
+            <div key={index} className={'group bg-white p-5 rounded-3xl border-2 border-purple-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col justify-between ' + (index === 0 ? 'lg:col-start-2' : '')}>
               <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-bl-[40px] -z-0"></div>
               <div className="flex items-center justify-between mb-4 relative z-10">
                 <div className="flex items-center gap-2">
-                  <div className={`w-10 h-10 bg-${subject.color}-50 rounded-xl flex items-center justify-center group-hover:rotate-3 transition-transform shadow-sm`}>
-                    <subject.icon className={`w-5 h-5 text-${subject.color}-500`} />
+                  <div className={'w-10 h-10 bg-' + subject.color + '-50 rounded-xl flex items-center justify-center group-hover:rotate-3 transition-transform shadow-sm'}>
+                    <subject.icon className={'w-5 h-5 text-' + subject.color + '-500'} />
                   </div>
                   <div className="text-left">
                     <h3 className="text-base font-black text-dark-navy leading-none mb-1">{subject.name}</h3>
@@ -709,7 +619,7 @@ function Overview({ user, setActiveTab }) {
               </div>
               <div className="mb-4 relative z-10 px-1">
                 <div className="bg-purple-50 rounded-full h-1 overflow-hidden">
-                  <div className="bg-green-500 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.3)]" style={{ width: `${subject.progress}%` }}></div>
+                  <div className="bg-green-500 h-full rounded-full transition-all duration-1000" style={{ width: subject.progress + '%' }}></div>
                 </div>
               </div>
               <button className="w-fit mx-auto px-6 bg-black text-white font-black rounded-xl py-2.5 hover:bg-gray-800 transition-all relative z-10 text-[10px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95">Continue Learning</button>
@@ -722,7 +632,7 @@ function Overview({ user, setActiveTab }) {
         <div className="relative group overflow-hidden rounded-3xl border-2 border-purple-200 bg-purple-50/50">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-200/50 to-transparent transition-opacity"></div>
           <div className="p-6 flex flex-col md:flex-row items-center gap-6 relative z-10">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-3xl shadow-lg border-2 border-purple-200 animate-float">🧘‍♀️</div>
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-3xl shadow-lg border-2 border-purple-200">🧘</div>
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-xl font-black text-dark-navy mb-1 italic">Feeling Overwhelmed?</h3>
               <p className="text-gray-600 font-medium text-base leading-relaxed">Take a quick 5-minute mindfulness break to recalibrate your emotions.</p>
@@ -735,46 +645,129 @@ function Overview({ user, setActiveTab }) {
   )
 }
 
-function RightSidebar() {
+// ── RightSidebar — shows latest mood and sleep from DB ────────────────────────
+function RightSidebar({ user, setActiveTab }) {
   const [completedTasks, setCompletedTasks] = useState({})
-  const [selectedWellnessEmoji, setSelectedWellnessEmoji] = useState(null)
+  const [latestMood, setLatestMood] = useState(null)
+  const [latestSleep, setLatestSleep] = useState(null)
+  const [moodLoading, setMoodLoading] = useState(true)
+  const [sleepLoading, setSleepLoading] = useState(true)
 
   const handleTaskToggle = (taskId) => {
     setCompletedTasks(prev => ({ ...prev, [taskId]: !prev[taskId] }))
   }
 
-  const wellnessEmojis = [
-    { emoji: '😊', label: 'Happy' },
-    { emoji: '😐', label: 'Neutral' },
-    { emoji: '😔', label: 'Sad' }
-  ]
+  useEffect(() => {
+    if (!user?.id) return
+
+    getLatestMood(user.id)
+      .then(data => setLatestMood(data))
+      .catch(err => console.error('Failed to load latest mood:', err))
+      .finally(() => setMoodLoading(false))
+
+    getLatestSleep(user.id)
+      .then(data => setLatestSleep(data))
+      .catch(err => console.error('Failed to load latest sleep:', err))
+      .finally(() => setSleepLoading(false))
+  }, [user?.id])
+
+  const QUALITY_LABEL = {
+    excellent: 'Excellent',
+    good: 'Good',
+    fair: 'Fair',
+    poor: 'Poor',
+  }
+
+  const QUALITY_COLOR = {
+    excellent: 'text-green-600 bg-green-50 border-green-200',
+    good: 'text-blue-600 bg-blue-50 border-blue-200',
+    fair: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+    poor: 'text-red-600 bg-red-50 border-red-200',
+  }
+
+  const MOOD_EMOJI = {
+    happy: '😊',
+    neutral: '😐',
+    sad: '😔',
+    anxious: '😰',
+    angry: '😡',
+  }
 
   return (
     <div className="font-lora">
-      <div className="mb-8">
-        <h3 className="font-semibold text-gray-900 mb-4">💝 Emotional Wellness</h3>
-        <div className="bg-white border-2 border-purple-200 rounded-xl p-4 min-h-[120px] flex flex-col justify-center">
-          <p className="text-sm text-gray-700 mb-4 text-center">
-            {selectedWellnessEmoji ? "Glad you shared how you're feeling!" : "How are you feeling today?"}
-          </p>
-          <div className="flex justify-center space-x-6">
-            {wellnessEmojis.map((item, index) => (
-              (!selectedWellnessEmoji || selectedWellnessEmoji === item.emoji) && (
-                <span
-                  key={index}
-                  onClick={() => setSelectedWellnessEmoji(item.emoji)}
-                  className={`text-4xl cursor-pointer transition-all duration-500 transform ${selectedWellnessEmoji === item.emoji ? 'scale-125 hover:scale-125' : 'hover:scale-110 grayscale-[0.5] hover:grayscale-0'}`}
-                >
-                  {item.emoji}
-                </span>
-              )
-            ))}
-          </div>
+
+      {/* Latest Mood */}
+      <div className="mb-6">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+          Latest Mood
+        </h3>
+        <div className="bg-white border-2 border-purple-200 rounded-xl p-4">
+          {moodLoading ? (
+            <div className="flex justify-center py-3">
+              <div className="w-5 h-5 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+            </div>
+          ) : latestMood ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{MOOD_EMOJI[latestMood.mood] || '😐'}</span>
+                <div>
+                  <p className="text-sm font-bold text-gray-900 capitalize">{latestMood.mood}</p>
+                  {latestMood.note && <p className="text-xs text-gray-500 truncate max-w-[140px]">{latestMood.note}</p>}
+                  <p className="text-[10px] text-gray-400">{new Date(latestMood.loggedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Update</button>
+            </div>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-sm text-gray-400 mb-2">No mood logged yet</p>
+              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Log your mood</button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mb-8">
-        <h3 className="font-semibold text-gray-900 mb-4">📝 Tasks to be done</h3>
+      {/* Latest Sleep */}
+      <div className="mb-6">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+          Last Night Sleep
+        </h3>
+        <div className="bg-white border-2 border-purple-200 rounded-xl p-4">
+          {sleepLoading ? (
+            <div className="flex justify-center py-3">
+              <div className="w-5 h-5 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+            </div>
+          ) : latestSleep ? (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🌙</span>
+                  <div>
+                    <p className="text-xs text-gray-500">Bedtime: <span className="font-bold text-gray-800">{latestSleep.bedtime}</span></p>
+                    <p className="text-xs text-gray-500">Wake: <span className="font-bold text-gray-800">{latestSleep.wakeTime}</span></p>
+                  </div>
+                </div>
+                <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Update</button>
+              </div>
+              <span className={'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ' + (QUALITY_COLOR[latestSleep.quality] || 'text-gray-600 bg-gray-50 border-gray-200')}>
+                {QUALITY_LABEL[latestSleep.quality] || latestSleep.quality}
+              </span>
+              <p className="text-[10px] text-gray-400 mt-1">{new Date(latestSleep.loggedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+            </div>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-sm text-gray-400 mb-2">No sleep logged yet</p>
+              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Log your sleep</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tasks */}
+      <div className="mb-6">
+        <h3 className="font-semibold text-gray-900 mb-3">Tasks to be done</h3>
         <div className="bg-white border-2 border-purple-200 rounded-xl p-4 space-y-3">
           {[
             { id: 'task1', text: 'Complete Math Chapter 5 exercises' },
@@ -783,14 +776,17 @@ function RightSidebar() {
           ].map(task => (
             <div key={task.id} className="flex items-center space-x-3">
               <input type="checkbox" className="rounded text-green-600 focus:ring-green-500" checked={completedTasks[task.id] || false} onChange={() => handleTaskToggle(task.id)} />
-              <span className={`text-sm ${completedTasks[task.id] ? 'text-green-600 line-through' : 'text-gray-700'}`}>{task.text}</span>
+              <span className={'text-sm ' + (completedTasks[task.id] ? 'text-green-600 line-through' : 'text-gray-700')}>{task.text}</span>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Recent Activity */}
       <div>
-        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><span className="w-2 h-2 bg-primary rounded-full"></span>Recent Activity</h3>
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-primary rounded-full"></span>Recent Activity
+        </h3>
         <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-sm">
           <div className="flex items-center space-x-3 p-3 bg-green-50/50 rounded-xl border border-green-100">
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0"><span className="text-green-600 text-sm font-bold">✓</span></div>
