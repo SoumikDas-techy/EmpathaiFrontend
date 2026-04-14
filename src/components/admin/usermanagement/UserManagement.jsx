@@ -32,13 +32,16 @@ const ordinal = (n) => {
 const formatClassName = (name) => {
     if (!name) return 'No Class'
     const match = name.match(/\d+/)
-    if (match) return `Class ${ordinal(parseInt(match[0]))} Standard`
-    return name.startsWith('Class') ? name : `Class ${name}`
+    if (match) {
+        const num = parseInt(match[0])
+        return 'Class ' + ordinal(num) + ' Standard'
+    }
+    return name.startsWith('Class') ? name : 'Class ' + name
 }
 
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => ({
-    label: `Class ${ordinal(n)}`,
-    value: `${ordinal(n)} Standard`,
+    label: 'Class ' + ordinal(n),
+    value: ordinal(n) + ' Standard',
 }))
 
 const calculateAgeFromDOB = (dob) => {
@@ -56,9 +59,9 @@ const formatTimeSpent = (seconds) => {
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
     const s = seconds % 60
-    if (h > 0) return `${h}h ${m}m`
-    if (m > 0) return `${m}m ${s}s`
-    return `${s}s`
+    if (h > 0) return h + 'h ' + m + 'm'
+    if (m > 0) return m + 'm ' + s + 's'
+    return s + 's'
 }
 
 const EMPTY_FORM = {
@@ -107,7 +110,8 @@ export default function UserManagement({ user }) {
 
     // ====================== DATA LOADERS ======================
     const loadSchools = useCallback(async () => {
-        setLoading(true); setApiError(null)
+        setLoading(true)
+        setApiError(null)
         try {
             const res = await getSchools()
             const list = res || []
@@ -115,33 +119,43 @@ export default function UserManagement({ user }) {
             schoolsForFormRef.current = list
         } catch (err) {
             setApiError(err.message || 'Failed to load schools')
-        } finally { setLoading(false) }
+        } finally {
+            setLoading(false)
+        }
     }, [])
 
     const loadClasses = useCallback(async (schoolId) => {
-        setLoading(true); setApiError(null)
+        setLoading(true)
+        setApiError(null)
         try {
             const res = await getClassesBySchool(schoolId)
             setClassesData(res || [])
         } catch (err) {
             setApiError(err.message || 'Failed to load classes')
-        } finally { setLoading(false) }
+        } finally {
+            setLoading(false)
+        }
     }, [])
 
     const loadStudents = useCallback(async (schoolId, className) => {
-        setLoading(true); setApiError(null)
-        setExpandedRow(null); setExpandedUserData({})
+        setLoading(true)
+        setApiError(null)
+        setExpandedRow(null)
+        setExpandedUserData({})
         try {
             const res = await getStudentsByClass(schoolId, className)
             setStudentsData(res || [])
         } catch (err) {
             setApiError(err.message || 'Failed to load students')
-        } finally { setLoading(false) }
+        } finally {
+            setLoading(false)
+        }
     }, [])
 
     const loadNonStudentTab = useCallback(async () => {
         if (activeTab === 'teacher' || activeTab === 'schools') return
-        setLoading(true); setApiError(null)
+        setLoading(true)
+        setApiError(null)
         try {
             const opts = { search: searchTerm || undefined, page: 0, size: 200 }
             let result
@@ -157,16 +171,22 @@ export default function UserManagement({ user }) {
             }
         } catch (err) {
             setApiError(err.message || 'Failed to load users')
-        } finally { setLoading(false) }
+        } finally {
+            setLoading(false)
+        }
     }, [activeTab, searchTerm])
 
     // ====================== EFFECTS ======================
     useEffect(() => {
-        setSelectedSchool(null); setSelectedClass(null)
-        setExpandedRow(null); setExpandedUserData({})
-        setUsers([]); setClassesData([]); setStudentsData([])
+        setSelectedSchool(null)
+        setSelectedClass(null)
+        setExpandedRow(null)
+        setExpandedUserData({})
+        setUsers([])
+        setClassesData([])
+        setStudentsData([])
         if (activeTab === 'student' || activeTab === 'schools') loadSchools()
-        else if (activeTab === 'teacher') { /* TeacherTab handles its own data */ }
+        else if (activeTab === 'teacher') { }
         else loadNonStudentTab()
     }, [activeTab, loadSchools, loadNonStudentTab])
 
@@ -176,7 +196,8 @@ export default function UserManagement({ user }) {
 
     useEffect(() => {
         if (selectedSchool && activeTab === 'student') {
-            setSelectedClass(null); setStudentsData([])
+            setSelectedClass(null)
+            setStudentsData([])
             loadClasses(selectedSchool.id || selectedSchool)
         }
     }, [selectedSchool, activeTab, loadClasses])
@@ -188,8 +209,13 @@ export default function UserManagement({ user }) {
 
     // ====================== NAVIGATION ======================
     const handleBack = () => {
-        if (selectedClass) { setSelectedClass(null); setStudentsData([]) }
-        else if (selectedSchool) { setSelectedSchool(null); setClassesData([]) }
+        if (selectedClass) {
+            setSelectedClass(null)
+            setStudentsData([])
+        } else if (selectedSchool) {
+            setSelectedSchool(null)
+            setClassesData([])
+        }
     }
 
     // ====================== MODAL & FORM ======================
@@ -205,8 +231,11 @@ export default function UserManagement({ user }) {
         if (item) {
             let full = item
             if (item.id) {
-                try { full = await getUserById(item.id) }
-                catch (e) { console.error('Failed to fetch full user', e) }
+                try {
+                    full = await getUserById(item.id)
+                } catch (e) {
+                    console.error('Failed to fetch full user', e)
+                }
             }
             setEditingUser(full)
             setFormData({
@@ -236,8 +265,8 @@ export default function UserManagement({ user }) {
                 role: activeTab,
                 school: activeTab === 'student' && schoolName ? schoolName : '',
             })
-            // Auto-generate password for all roles including students
-            if (activeTab !== 'schools') generatePassword()
+            // Auto-generate password for non-student, non-school roles
+            if (activeTab !== 'schools' && activeTab !== 'student') generatePassword()
         }
         setIsModalOpen(true)
     }
@@ -247,44 +276,44 @@ export default function UserManagement({ user }) {
         const { name, email, school, rollNo, section, parentName,
             dateOfBirth, password, phoneNumber, parentPhone } = formData
 
-        if (!name?.trim()) errors.name = "Name is required"
+        if (!name?.trim()) errors.name = 'Name is required'
 
         if (activeTab === 'schools') {
-            if (!formData.contactName?.trim()) errors.contactName = "Contact Name is required"
-            if (!email?.trim()) errors.email = "Email is required"
+            if (!formData.contactName?.trim()) errors.contactName = 'Contact Name is required'
+            if (!email?.trim()) errors.email = 'Email is required'
             const dup = schoolsData.find(s => s.name.toLowerCase() === name.trim().toLowerCase() &&
                 (!editingUser || s.id !== editingUser.id))
-            if (dup) errors.name = "School name already exists"
+            if (dup) errors.name = 'School name already exists'
         } else {
-            if (!email?.trim()) errors.email = "Email is required"
-            else if (!email.includes('@')) errors.email = "Invalid email format"
+            if (!email?.trim()) errors.email = 'Email is required'
+            else if (!email.includes('@')) errors.email = 'Invalid email format'
 
-            // Password optional for students (they can use email invite if left blank)
-            // Required for other roles on create
+            // Non-student roles: password required on create (no MFA in his flow for these)
             if (activeTab !== 'student' && !editingUser && !password?.trim())
-                errors.password = "Password is required"
+                errors.password = 'Password is required'
 
             if (activeTab === 'student') {
-                if (!school?.trim()) errors.school = "School is required"
-                if (!rollNo?.trim()) errors.rollNo = "Roll No is required"
-                if (!formData.class?.trim()) errors.class = "Class is required"
-                if (!section?.trim()) errors.section = "Section is required"
-                if (!parentName?.trim()) errors.parentName = "Parent Name is required"
-                if (!dateOfBirth) errors.dateOfBirth = "Date of Birth is required"
+                if (!school?.trim()) errors.school = 'School is required'
+                if (!rollNo?.trim()) errors.rollNo = 'Roll No is required'
+                if (!formData.class?.trim()) errors.class = 'Class is required'
+                if (!section?.trim()) errors.section = 'Section is required'
+                if (!parentName?.trim()) errors.parentName = 'Parent Name is required'
+                if (!dateOfBirth) errors.dateOfBirth = 'Date of Birth is required'
             }
         }
 
         if (phoneNumber?.trim() && phoneNumber.replace(/\D/g, '').length !== 10)
-            errors.phoneNumber = "Phone number must be 10 digits"
+            errors.phoneNumber = 'Phone number must be 10 digits'
         if (parentPhone?.trim() && parentPhone.replace(/\D/g, '').length !== 10)
-            errors.parentPhone = "Parent phone must be 10 digits"
+            errors.parentPhone = 'Parent phone must be 10 digits'
 
         setValidationErrors(errors)
         return Object.keys(errors).length === 0
     }
 
     const handleSaveUser = async () => {
-        setSuccessMessage(null); setApiError(null)
+        setSuccessMessage(null)
+        setApiError(null)
         if (!validateForm()) return
         setSaving(true)
         try {
@@ -296,13 +325,15 @@ export default function UserManagement({ user }) {
                     email: formData.email,
                 })
             } else {
-                // For students: send password if provided, otherwise backend sends MFA email
-                // For other roles: same — password if provided, MFA email if blank
                 const payload = {
                     name: formData.name,
                     email: formData.email,
                     role: TAB_ROLE_MAP[formData.role] || formData.role,
-                    password: formData.password?.trim() || undefined,
+                    // Students: send password if provided, otherwise backend sends MFA email
+                    // Non-students: always send the generated/entered password
+                    password: activeTab === 'student'
+                        ? (formData.password?.trim() || undefined)
+                        : (formData.password || undefined),
                     phoneNumber: formData.phoneNumber || undefined,
                     school: formData.school || undefined,
                     className: formData.class || undefined,
@@ -315,7 +346,7 @@ export default function UserManagement({ user }) {
                     section: formData.section || undefined,
                     gender: formData.gender || undefined,
                     loginCount: Number(formData.loginCount) || 0,
-                    intervention: Number(formData.intervention) || 0,
+                    interventionSessionCount: Number(formData.intervention) || 0,
                     timeSpent: Number(formData.timeSpent) || 0,
                 }
                 if (editingUser) await updateUser(editingUser.id, payload)
@@ -324,16 +355,16 @@ export default function UserManagement({ user }) {
 
             setIsModalOpen(false)
 
-            // Success message logic
+            // Smart success message depending on mode
             let msg
             if (activeTab === 'student' && !editingUser) {
                 if (formData.password?.trim()) {
-                    msg = `Student created successfully with the provided password!`
+                    msg = 'Student created successfully!'
                 } else {
-                    msg = `Student created! Password setup email sent to ${formData.email}`
+                    msg = 'Student created! Password setup email sent to ' + formData.email
                 }
             } else {
-                msg = `${activeTab === 'schools' ? 'School' : 'User'} saved successfully!`
+                msg = (activeTab === 'schools' ? 'School' : 'User') + ' saved successfully!'
             }
             setSuccessMessage(msg)
             setTimeout(() => setSuccessMessage(null), 6000)
@@ -346,10 +377,15 @@ export default function UserManagement({ user }) {
             } else if (activeTab !== 'teacher') await loadNonStudentTab()
         } catch (err) {
             setApiError(err.message || 'Save failed')
-        } finally { setSaving(false) }
+        } finally {
+            setSaving(false)
+        }
     }
 
-    const handleDeleteUser = (item) => { setUserToDelete(item); setIsDeleteModalOpen(true) }
+    const handleDeleteUser = (item) => {
+        setUserToDelete(item)
+        setIsDeleteModalOpen(true)
+    }
 
     const confirmDelete = async () => {
         if (!userToDelete) return
@@ -357,9 +393,10 @@ export default function UserManagement({ user }) {
         try {
             if (activeTab === 'schools') await deleteSchool(userToDelete.id)
             else await deleteUser(userToDelete.id)
-            setSuccessMessage(`${activeTab === 'schools' ? 'School' : 'User'} deleted successfully!`)
+            setSuccessMessage((activeTab === 'schools' ? 'School' : 'User') + ' deleted successfully!')
             setTimeout(() => setSuccessMessage(null), 3000)
-            setIsDeleteModalOpen(false); setUserToDelete(null)
+            setIsDeleteModalOpen(false)
+            setUserToDelete(null)
             if (activeTab === 'schools') await loadSchools()
             else if (activeTab === 'student') {
                 if (selectedClass && selectedSchool) await loadStudents(selectedSchool.id || selectedSchool, selectedClass)
@@ -368,17 +405,25 @@ export default function UserManagement({ user }) {
             } else if (activeTab !== 'teacher') await loadNonStudentTab()
         } catch (err) {
             setApiError(err.message || 'Delete failed')
-        } finally { setSaving(false) }
+        } finally {
+            setSaving(false)
+        }
     }
 
+    // HIS toggleRow: uses getUserById for full data including gender + activity fields
     const toggleRow = async (studentId) => {
-        if (expandedRow === studentId) { setExpandedRow(null); return }
+        if (expandedRow === studentId) {
+            setExpandedRow(null)
+            return
+        }
         setExpandedRow(studentId)
         if (!expandedUserData[studentId]) {
             try {
-                const full = await getStudentDetail(selectedSchool.id || selectedSchool, selectedClass, studentId)
+                const full = await getUserById(studentId)
                 setExpandedUserData(prev => ({ ...prev, [studentId]: full }))
-            } catch (err) { console.error('Failed to fetch student detail', err) }
+            } catch (err) {
+                console.error('Failed to fetch student detail', err)
+            }
         }
     }
 
@@ -395,37 +440,46 @@ export default function UserManagement({ user }) {
     })
 
     const addButtonLabels = {
-        student: "Add Students", school_admin: "Add School Admins",
-        psychologist: "Add Psychologists", content_admin: "Add Content Admins",
-        schools: "Add School", teacher: "Add Teacher",
-    }
-    const roleTitles = {
-        student: "Student", school_admin: "School Admin",
-        psychologist: "Psychologist", content_admin: "Content Admin",
-        schools: "School", teacher: "Teacher",
+        student: 'Add Students',
+        school_admin: 'Add School Admins',
+        psychologist: 'Add Psychologists',
+        content_admin: 'Add Content Admins',
+        schools: 'Add School',
+        teacher: 'Add Teacher',
     }
 
-    // ── Helper: save button label ──
+    const roleTitles = {
+        student: 'Student',
+        school_admin: 'School Admin',
+        psychologist: 'Psychologist',
+        content_admin: 'Content Admin',
+        schools: 'School',
+        teacher: 'Teacher',
+    }
+
+    // Dynamic save button label
     const getSaveLabel = () => {
         if (saving) return 'Saving...'
         if (editingUser) return 'Save'
         if (activeTab === 'student') {
             return formData.password?.trim() ? 'Create Student' : 'Create & Send Email'
         }
-        return formData.password?.trim() ? 'Create' : 'Create & Send Email'
+        return 'Save'
     }
 
     return (
         <div className="relative">
             {successMessage && (
-                <div className="fixed top-4 right-4 z-[60] animate-fade-in-down max-w-sm">
+                <div className="fixed top-4 right-4 z-[60] animate-fade-in-down">
                     <div className="bg-green-50 border-l-4 border-green-400 p-4 shadow-lg rounded-md">
                         <div className="flex items-start">
-                            <svg className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                            <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            <p className="ml-3 text-sm font-medium text-green-800 whitespace-pre-wrap">{successMessage}</p>
-                            <button onClick={() => setSuccessMessage(null)} className="ml-4 text-green-500 flex-shrink-0">
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-green-800 whitespace-pre-wrap">{successMessage}</p>
+                            </div>
+                            <button onClick={() => setSuccessMessage(null)} className="ml-4 text-green-500">
                                 <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                                 </svg>
@@ -444,12 +498,14 @@ export default function UserManagement({ user }) {
                 </div>
             )}
 
-            {/* Tabs */}
             <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8 overflow-x-auto">
                     {roles.map((role) => (
-                        <button key={role.id} onClick={() => setActiveTab(role.id)}
-                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === role.id ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                        <button
+                            key={role.id}
+                            onClick={() => setActiveTab(role.id)}
+                            className={'whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ' + (activeTab === role.id ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300')}
+                        >
                             {role.label}
                         </button>
                     ))}
@@ -460,7 +516,6 @@ export default function UserManagement({ user }) {
                 <TeacherTab user={user} schoolsData={schoolsData} />
             ) : (
                 <>
-                    {/* Action Bar */}
                     <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-3">
                             {(selectedSchool || selectedClass) && activeTab === 'student' && (
@@ -469,39 +524,54 @@ export default function UserManagement({ user }) {
                                 </button>
                             )}
                             <h3 className="text-lg font-medium text-gray-900">
-                                {!selectedSchool ? `Manage ${roles.find(r => r.id === activeTab)?.label}`
-                                    : !selectedClass ? `${selectedSchool.name || selectedSchool} Classes`
-                                        : `${selectedSchool.name || selectedSchool} — ${formatClassName(selectedClass)}`}
+                                {!selectedSchool
+                                    ? 'Manage ' + (roles.find(r => r.id === activeTab)?.label || '')
+                                    : !selectedClass
+                                        ? (selectedSchool.name || selectedSchool) + ' Classes'
+                                        : (selectedSchool.name || selectedSchool) + ' — ' + formatClassName(selectedClass)}
                             </h3>
                         </div>
-                        <button onClick={() => handleOpenModal()}
-                            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md shadow-sm hover:bg-purple-700">
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md shadow-sm hover:bg-purple-700"
+                        >
                             <UserPlusIcon className="w-5 h-5 mr-2" />
                             {addButtonLabels[activeTab]}
                         </button>
                     </div>
 
-                    {/* Search */}
                     <div className="mb-6 relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
                         </div>
-                        <input type="text" placeholder="Search..." value={searchTerm}
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 sm:text-sm" />
+                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                        />
                     </div>
 
-                    {loading && <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" /></div>}
+                    {loading && (
+                        <div className="flex justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+                        </div>
+                    )}
 
                     {!loading && (
                         <>
                             {/* School Cards */}
                             {activeTab === 'student' && !selectedSchool && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {schoolsData.filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    {schoolsData
+                                        .filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                         .map(school => (
-                                            <div key={school.id} onClick={() => setSelectedSchool(school)}
-                                                className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg cursor-pointer">
+                                            <div
+                                                key={school.id}
+                                                onClick={() => setSelectedSchool(school)}
+                                                className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg cursor-pointer"
+                                            >
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                                                         <BuildingLibraryIcon className="w-6 h-6 text-purple-600" />
@@ -522,8 +592,11 @@ export default function UserManagement({ user }) {
                                     {classesData
                                         .sort((a, b) => parseInt(a.className?.match(/\d+/)?.[0] || 0) - parseInt(b.className?.match(/\d+/)?.[0] || 0))
                                         .map(cls => (
-                                            <div key={cls.className} onClick={() => setSelectedClass(cls.className)}
-                                                className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-md cursor-pointer text-center">
+                                            <div
+                                                key={cls.className}
+                                                onClick={() => setSelectedClass(cls.className)}
+                                                className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-md cursor-pointer text-center"
+                                            >
                                                 <AcademicCapIcon className="w-8 h-8 text-purple-600 mx-auto mb-2" />
                                                 <h3 className="text-xl font-bold">{formatClassName(cls.className)}</h3>
                                                 <div className="text-xs text-purple-800 bg-purple-100 px-2 py-1 rounded-full inline-block mt-1">
@@ -555,14 +628,16 @@ export default function UserManagement({ user }) {
                                                         <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleRow(u.id)}>
                                                             <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                                                 <div className="flex items-center gap-2">
-                                                                    {expandedRow === u.id ? <ChevronDownIcon className="w-4 h-4 text-purple-500" /> : <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
+                                                                    {expandedRow === u.id
+                                                                        ? <ChevronDownIcon className="w-4 h-4 text-purple-500" />
+                                                                        : <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
                                                                     {u.name}
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">{u.email}</td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                    {full.section ? `Section ${full.section}` : '—'}
+                                                                    {full.section ? 'Section ' + full.section : '—'}
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">
@@ -574,38 +649,48 @@ export default function UserManagement({ user }) {
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-center" onClick={e => e.stopPropagation()}>
                                                                 <div className="flex items-center justify-center gap-3">
-                                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
-                                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                                                    <button onClick={() => handleOpenModal(u)} className="text-indigo-600 hover:text-indigo-800">
+                                                                        <PencilIcon className="w-5 h-5" />
+                                                                    </button>
+                                                                    <button onClick={() => handleDeleteUser(u)} className="text-red-600 hover:text-red-800">
+                                                                        <TrashIcon className="w-5 h-5" />
+                                                                    </button>
                                                                 </div>
                                                             </td>
                                                         </tr>
+
+                                                        {/* HIS expanded row: loading spinner until data arrives, then 5-col grid */}
                                                         {expandedRow === u.id && (
                                                             <tr className="bg-gray-50">
                                                                 <td colSpan={5} className="px-8 py-4">
-                                                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
-                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                                                {full.gender || '—'}
-                                                                            </span>
+                                                                    {expandedUserData[u.id] ? (
+                                                                        <div className="grid grid-cols-5 gap-4">
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Gender</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].gender || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].rollNo || '—'}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].loginCount ?? 0}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{expandedUserData[u.id].interventionSessionCount ?? 0}</p>
+                                                                            </div>
+                                                                            <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                                                                                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
+                                                                                <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(expandedUserData[u.id].timeSpent)}</p>
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Roll No</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.rollNo || '—'}</p>
+                                                                    ) : (
+                                                                        <div className="flex justify-center py-4">
+                                                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
                                                                         </div>
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Login Count</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.loginCount ?? 0}</p>
-                                                                        </div>
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Intervention Sessions</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{full.interventionSessionCount ?? full.intervention ?? 0}</p>
-                                                                        </div>
-                                                                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
-                                                                            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Time Spent</p>
-                                                                            <p className="text-sm font-semibold text-gray-800">{formatTimeSpent(full.timeSpent)}</p>
-                                                                        </div>
-                                                                    </div>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         )}
@@ -613,14 +698,16 @@ export default function UserManagement({ user }) {
                                                 )
                                             })}
                                             {filteredStudents.length === 0 && (
-                                                <tr><td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td></tr>
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-400">No students found</td>
+                                                </tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
                             )}
 
-                            {/* Schools Table */}
+                            {/* Schools Table — HIS edit button kept */}
                             {activeTab === 'schools' && (
                                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -632,15 +719,20 @@ export default function UserManagement({ user }) {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
-                                            {schoolsData.filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                            {schoolsData
+                                                .filter(s => !searchTerm || s.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                                 .map(school => (
                                                     <tr key={school.id} className="hover:bg-gray-50">
                                                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{school.name}</td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">{school.studentCount || 0}</td>
                                                         <td className="px-6 py-4 text-sm text-center">
                                                             <div className="flex items-center justify-center gap-3">
-                                                                <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800"><PencilIcon className="w-5 h-5" /></button>
-                                                                <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-5 h-5" /></button>
+                                                                <button onClick={() => handleOpenModal(school)} className="text-indigo-600 hover:text-indigo-800">
+                                                                    <PencilIcon className="w-5 h-5" />
+                                                                </button>
+                                                                <button onClick={() => handleDeleteUser(school)} className="text-red-600 hover:text-red-800">
+                                                                    <TrashIcon className="w-5 h-5" />
+                                                                </button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -650,7 +742,7 @@ export default function UserManagement({ user }) {
                                 </div>
                             )}
 
-                            {/* Non-Student Tables */}
+                            {/* Generic Non-Student Tables */}
                             {!['student', 'schools', 'teacher'].includes(activeTab) && (
                                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -687,58 +779,92 @@ export default function UserManagement({ user }) {
                             <div className="flex items-center justify-center min-h-screen px-4">
                                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsModalOpen(false)} />
                                 <div className="bg-white rounded-lg p-6 z-10 w-full max-w-2xl">
-                                    <h3 className="text-lg font-bold mb-4">{editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}</h3>
+                                    <h3 className="text-lg font-bold mb-4">
+                                        {editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}
+                                    </h3>
                                     <div className="space-y-4">
 
-                                        {/* Name */}
+                                        {/* Name — same in both */}
                                         <div>
                                             <label className="block text-sm font-medium">Name</label>
-                                            <input type="text" value={formData.name}
+                                            <input
+                                                type="text"
+                                                value={formData.name}
                                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                                className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.name ? 'border-red-500' : 'border-gray-300'}`} />
+                                                className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.name ? 'border-red-500' : 'border-gray-300')}
+                                            />
                                             {validationErrors.name && <p className="text-red-500 text-xs mt-1">{validationErrors.name}</p>}
                                         </div>
 
                                         {activeTab === 'schools' ? (
+                                            // ── Schools Form — HIS code ──
                                             <>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Contact Person</label>
-                                                        <input type="text" value={formData.contactName} onChange={e => setFormData({ ...formData, contactName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.contactName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.contactName}
+                                                            onChange={e => setFormData({ ...formData, contactName: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.contactName ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.contactName && <p className="text-red-500 text-xs mt-1">{validationErrors.contactName}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Official Email</label>
-                                                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium">Phone Number</label>
-                                                    <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                    <input
+                                                        type="text"
+                                                        value={formData.phoneNumber}
+                                                        onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                        className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                    />
                                                 </div>
                                             </>
                                         ) : activeTab === 'student' ? (
+                                            // ── Student Form — HIS layout + MY password field + MY gender fix ──
                                             <>
-                                                {/* ── REQUIREMENT 1: Info banner explaining dual mode ── */}
+                                                {/* HIS email invite banner — kept exactly */}
                                                 {!editingUser && (
-                                                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                                                        <p className="text-sm text-blue-800">
-                                                            <strong>Password Setup:</strong> Enter a password to create the account immediately,
-                                                            or <strong>clear the password field</strong> to send an automatic email invite to the student.
+                                                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 flex gap-3">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2.01 2.01 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2" />
+                                                        </svg>
+                                                        <p className="text-sm text-purple-800">
+                                                            Enter a password to set it directly, or <strong>leave it blank</strong> to send an email invite to the student.
                                                         </p>
                                                     </div>
                                                 )}
 
+                                                {/* HIS DOB + Class */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Date of Birth</label>
-                                                        <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="date"
+                                                            value={formData.dateOfBirth}
+                                                            onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Class</label>
-                                                        <select value={formData.class} onChange={e => setFormData({ ...formData, class: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.class ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.class}
+                                                            onChange={e => setFormData({ ...formData, class: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.class ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select Class</option>
                                                             {CLASS_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                                         </select>
@@ -746,10 +872,15 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
+                                                {/* HIS Section + Roll No */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Section</label>
-                                                        <select value={formData.section} onChange={e => setFormData({ ...formData, section: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.section ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.section}
+                                                            onChange={e => setFormData({ ...formData, section: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.section ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select Section</option>
                                                             {['A', 'B', 'C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
                                                         </select>
@@ -757,15 +888,25 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Roll No</label>
-                                                        <input type="text" value={formData.rollNo} onChange={e => setFormData({ ...formData, rollNo: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.rollNo ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.rollNo}
+                                                            onChange={e => setFormData({ ...formData, rollNo: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.rollNo ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.rollNo && <p className="text-red-500 text-xs mt-1">{validationErrors.rollNo}</p>}
                                                     </div>
                                                 </div>
 
+                                                {/* HIS Gender + Email — GENDER NOW WORKING */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Gender</label>
-                                                        <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                                                        <select
+                                                            value={formData.gender}
+                                                            onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        >
                                                             <option value="">Select Gender</option>
                                                             <option value="Male">Male</option>
                                                             <option value="Female">Female</option>
@@ -774,41 +915,69 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Email</label>
-                                                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                 </div>
 
-                                                {/* ── REQUIREMENT 1: Password field kept for students ── */}
+                                                {/* MY password field — Req 1: dual mode for students */}
                                                 <div>
                                                     <label className="block text-sm font-medium">
                                                         Password
                                                         <span className="ml-1 text-xs text-gray-400 font-normal">(leave blank to send email invite)</span>
                                                     </label>
                                                     <div className="flex gap-2">
-                                                        <input type="text" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="Enter password or leave blank for email invite" className="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm" />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.password}
+                                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                            placeholder="Enter password or leave blank for email"
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm"
+                                                        />
                                                         <button type="button" onClick={generatePassword} className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300 whitespace-nowrap">Gen</button>
                                                         <button type="button" onClick={() => setFormData({ ...formData, password: '' })} className="mt-1 bg-purple-50 px-3 rounded-md text-sm border border-purple-200 text-purple-700 whitespace-nowrap">Email</button>
                                                     </div>
                                                 </div>
 
+                                                {/* HIS Parent Name + Phone */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Name</label>
-                                                        <input type="text" value={formData.parentName} onChange={e => setFormData({ ...formData, parentName: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentName ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.parentName}
+                                                            onChange={e => setFormData({ ...formData, parentName: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentName ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.parentName && <p className="text-red-500 text-xs mt-1">{validationErrors.parentName}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Phone</label>
-                                                        <input type="text" value={formData.parentPhone} onChange={e => setFormData({ ...formData, parentPhone: e.target.value })} placeholder="10-digit number" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.parentPhone}
+                                                            onChange={e => setFormData({ ...formData, parentPhone: e.target.value })}
+                                                            placeholder="10-digit number"
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
                                                     </div>
                                                 </div>
 
+                                                {/* HIS School selector */}
                                                 {(user?.role === 'SUPER_ADMIN' || editingUser) && (
                                                     <div>
                                                         <label className="block text-sm font-medium">School</label>
-                                                        <select value={formData.school} onChange={e => setFormData({ ...formData, school: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.school ? 'border-red-500' : 'border-gray-300'}`}>
+                                                        <select
+                                                            value={formData.school}
+                                                            onChange={e => setFormData({ ...formData, school: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.school ? 'border-red-500' : 'border-gray-300')}
+                                                        >
                                                             <option value="">Select School</option>
                                                             {schoolsForFormRef.current.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                                         </select>
@@ -816,61 +985,87 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 )}
 
-                                                {/* Admin tracking fields */}
+                                                {/* HIS admin tracking fields */}
                                                 <div className="grid grid-cols-3 gap-4 pt-2 border-t">
                                                     <div>
                                                         <label className="block text-sm font-medium">Login Count</label>
-                                                        <input type="number" min="0" value={formData.loginCount} onChange={e => setFormData({ ...formData, loginCount: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={formData.loginCount}
+                                                            onChange={e => setFormData({ ...formData, loginCount: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium">Intervention Sessions</label>
-                                                        <input type="number" min="0" value={formData.intervention} onChange={e => setFormData({ ...formData, intervention: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                        <label className="block text-sm font-medium">Intervention</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={formData.intervention}
+                                                            onChange={e => setFormData({ ...formData, intervention: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-medium">Time Spent (sec)</label>
-                                                        <input type="number" min="0" value={formData.timeSpent} onChange={e => setFormData({ ...formData, timeSpent: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                        <label className="block text-sm font-medium">Time Spent (s)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={formData.timeSpent}
+                                                            onChange={e => setFormData({ ...formData, timeSpent: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        />
                                                     </div>
                                                 </div>
                                             </>
                                         ) : (
-                                            // ── Other roles: school_admin, psychologist, content_admin ──
+                                            // ── Non-student roles — HIS code (password required) ──
                                             <>
-                                                {/* ── REQUIREMENT 2: MFA info for non-student roles ── */}
-                                                {!editingUser && (
-                                                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                                                        <p className="text-sm text-blue-800">
-                                                            <strong>Password Setup:</strong> Enter a password or <strong>clear the field</strong> to send an email invite instead.
-                                                        </p>
-                                                    </div>
-                                                )}
-
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Email</label>
-                                                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.email ? 'border-red-500' : 'border-gray-300'}`} />
+                                                        <input
+                                                            type="email"
+                                                            value={formData.email}
+                                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.email ? 'border-red-500' : 'border-gray-300')}
+                                                        />
                                                         {validationErrors.email && <p className="text-red-500 text-xs mt-1">{validationErrors.email}</p>}
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium">Phone Number</label>
-                                                        <input type="text" value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+                                                        <input
+                                                            type="text"
+                                                            value={formData.phoneNumber}
+                                                            onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        />
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium">
-                                                        Password
-                                                        <span className="ml-1 text-xs text-gray-400 font-normal">(leave blank to send email invite)</span>
-                                                    </label>
+                                                    <label className="block text-sm font-medium">Password</label>
                                                     <div className="flex gap-2">
-                                                        <input type="text" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} placeholder="Enter password or leave blank for email invite" className={`mt-1 block w-full border rounded-md p-2 ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`} />
-                                                        <button type="button" onClick={generatePassword} className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">Generate</button>
-                                                        <button type="button" onClick={() => setFormData({ ...formData, password: '' })} className="bg-purple-50 px-3 rounded-md text-sm border border-purple-200 text-purple-700">Email</button>
+                                                        <input
+                                                            type="text"
+                                                            value={formData.password}
+                                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
+                                                        />
+                                                        <button type="button" onClick={generatePassword} className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">
+                                                            Generate
+                                                        </button>
                                                     </div>
                                                     {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                                 </div>
                                                 {activeTab === 'school_admin' && user?.role === 'SUPER_ADMIN' && (
                                                     <div>
                                                         <label className="block text-sm font-medium">School</label>
-                                                        <select value={formData.school} onChange={e => setFormData({ ...formData, school: e.target.value })} className="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                                                        <select
+                                                            value={formData.school}
+                                                            onChange={e => setFormData({ ...formData, school: e.target.value })}
+                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                                                        >
                                                             <option value="">Select School</option>
                                                             {schoolsForFormRef.current.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                                                         </select>
@@ -882,7 +1077,11 @@ export default function UserManagement({ user }) {
 
                                     <div className="mt-6 flex justify-end gap-3">
                                         <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                                        <button onClick={handleSaveUser} disabled={saving} className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50">
+                                        <button
+                                            onClick={handleSaveUser}
+                                            disabled={saving}
+                                            className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50"
+                                        >
                                             {getSaveLabel()}
                                         </button>
                                     </div>
@@ -891,7 +1090,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* Delete Modal */}
+                    {/* Delete Modal — HIS code */}
                     {isDeleteModalOpen && (
                         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)} />
