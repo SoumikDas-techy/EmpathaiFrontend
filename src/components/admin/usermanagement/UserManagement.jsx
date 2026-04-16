@@ -15,6 +15,10 @@ import {
 
 import TeacherTab from './Teachertab.jsx'
 
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
+import '../../../styles/datepicker.css'
+
 const TAB_ROLE_MAP = {
     student: 'STUDENT',
     school_admin: 'SCHOOL_ADMIN',
@@ -69,7 +73,7 @@ const EMPTY_FORM = {
     class: '', section: '', school: '', parentName: '',
     parentPhone: '', phoneNumber: '', dateOfBirth: '',
     gender: '', contactName: '', rollNo: '',
-    password: '', loginCount: 0, intervention: 0, timeSpent: 0,
+    password: '',
 }
 
 export default function UserManagement({ user }) {
@@ -108,7 +112,6 @@ export default function UserManagement({ user }) {
         return false
     })
 
-    // ====================== DATA LOADERS ======================
     const loadSchools = useCallback(async () => {
         setLoading(true)
         setApiError(null)
@@ -176,7 +179,6 @@ export default function UserManagement({ user }) {
         }
     }, [activeTab, searchTerm])
 
-    // ====================== EFFECTS ======================
     useEffect(() => {
         setSelectedSchool(null)
         setSelectedClass(null)
@@ -207,7 +209,6 @@ export default function UserManagement({ user }) {
             loadStudents(selectedSchool.id || selectedSchool, selectedClass)
     }, [selectedClass, selectedSchool, activeTab, loadStudents])
 
-    // ====================== NAVIGATION ======================
     const handleBack = () => {
         if (selectedClass) {
             setSelectedClass(null)
@@ -218,7 +219,6 @@ export default function UserManagement({ user }) {
         }
     }
 
-    // ====================== MODAL & FORM ======================
     const generatePassword = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
         let pass = ''
@@ -253,7 +253,6 @@ export default function UserManagement({ user }) {
                 gender: full.gender || '',
                 contactName: full.contactName || '',
                 rollNo: full.rollNo || '',
-               
             })
         } else {
             setEditingUser(null)
@@ -263,7 +262,6 @@ export default function UserManagement({ user }) {
                 role: activeTab,
                 school: activeTab === 'student' && schoolName ? schoolName : '',
             })
-            // Don't auto-generate: leave blank so email invite is the default
         }
         setIsModalOpen(true)
     }
@@ -284,8 +282,6 @@ export default function UserManagement({ user }) {
         } else {
             if (!email?.trim()) errors.email = 'Email is required'
             else if (!email.includes('@')) errors.email = 'Invalid email format'
-
-            // Password is optional for all roles: blank = send email invite
 
             if (activeTab === 'student') {
                 if (!school?.trim()) errors.school = 'School is required'
@@ -324,11 +320,7 @@ export default function UserManagement({ user }) {
                     name: formData.name,
                     email: formData.email,
                     role: TAB_ROLE_MAP[formData.role] || formData.role,
-                    // Students: send password if provided, otherwise backend sends MFA email
-                    // Non-students: always send the generated/entered password
-                    password: activeTab === 'student'
-                        ? (formData.password?.trim() || undefined)
-                        : (formData.password || undefined),
+                    password: formData.password?.trim() || undefined,
                     phoneNumber: formData.phoneNumber || undefined,
                     school: formData.school || undefined,
                     className: formData.class || undefined,
@@ -340,17 +332,12 @@ export default function UserManagement({ user }) {
                     rollNo: formData.rollNo || undefined,
                     section: formData.section || undefined,
                     gender: formData.gender || undefined,
-                    loginCount: Number(formData.loginCount) || 0,
-                    interventionSessionCount: Number(formData.intervention) || 0,
-                    timeSpent: Number(formData.timeSpent) || 0,
                 }
                 if (editingUser) await updateUser(editingUser.id, payload)
                 else await createUser(payload)
             }
 
             setIsModalOpen(false)
-
-            // Smart success message depending on mode
             let msg
             if (!editingUser && activeTab !== 'schools') {
                 if (formData.password?.trim()) {
@@ -405,7 +392,6 @@ export default function UserManagement({ user }) {
         }
     }
 
-    // HIS toggleRow: uses getUserById for full data including gender + activity fields
     const toggleRow = async (studentId) => {
         if (expandedRow === studentId) {
             setExpandedRow(null)
@@ -452,12 +438,10 @@ export default function UserManagement({ user }) {
         teacher: 'Teacher',
     }
 
-    // Dynamic save button label
     const getSaveLabel = () => {
         if (saving) return 'Saving...'
         if (editingUser) return 'Save'
         if (activeTab === 'schools') return 'Save'
-        // For all user roles: password blank = email invite
         return formData.password?.trim() ? 'Create ' + roleTitles[activeTab] : 'Create & Send Email'
     }
 
@@ -653,7 +637,7 @@ export default function UserManagement({ user }) {
                                                             </td>
                                                         </tr>
 
-                                                        {/* HIS expanded row: loading spinner until data arrives, then 5-col grid */}
+                                                        {/* Expanded Row */}
                                                         {expandedRow === u.id && (
                                                             <tr className="bg-gray-50">
                                                                 <td colSpan={5} className="px-8 py-4">
@@ -701,7 +685,7 @@ export default function UserManagement({ user }) {
                                 </div>
                             )}
 
-                            {/* Schools Table — HIS edit button kept */}
+                            {/* Schools Table */}
                             {activeTab === 'schools' && (
                                 <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
                                     <table className="min-w-full divide-y divide-gray-200">
@@ -767,7 +751,7 @@ export default function UserManagement({ user }) {
                         </>
                     )}
 
-                    {/* ── CREATE / EDIT MODAL ── */}
+                    {/* CREATE / EDIT MODAL */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 overflow-y-auto">
                             <div className="flex items-center justify-center min-h-screen px-4">
@@ -777,8 +761,6 @@ export default function UserManagement({ user }) {
                                         {editingUser ? 'Edit' : 'Create'} {roleTitles[activeTab]}
                                     </h3>
                                     <div className="space-y-4">
-
-                                        {/* Name — same in both */}
                                         <div>
                                             <label className="block text-sm font-medium">Name</label>
                                             <input
@@ -791,7 +773,6 @@ export default function UserManagement({ user }) {
                                         </div>
 
                                         {activeTab === 'schools' ? (
-                                            // ── Schools Form — HIS code ──
                                             <>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
@@ -826,9 +807,7 @@ export default function UserManagement({ user }) {
                                                 </div>
                                             </>
                                         ) : activeTab === 'student' ? (
-                                            // ── Student Form — HIS layout + MY password field + MY gender fix ──
                                             <>
-                                                {/* HIS email invite banner — kept exactly */}
                                                 {!editingUser && (
                                                     <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 flex gap-3">
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -840,16 +819,29 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 )}
 
-                                                {/* HIS DOB + Class */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-medium">Date of Birth</label>
-                                                        <input
-                                                            type="date"
-                                                            value={formData.dateOfBirth}
-                                                            onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                                                            className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300')}
-                                                        />
+                                                        <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                                                        <div className={'relative mt-1 rounded-md ' + (validationErrors.dateOfBirth ? 'ring-2 ring-red-300' : '')}>
+                                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10">
+                                                                <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </div>
+                                                            <DatePicker
+                                                                selected={formData.dateOfBirth ? new Date(formData.dateOfBirth) : null}
+                                                                onChange={(date) => setFormData({ ...formData, dateOfBirth: date ? date.toISOString().split('T')[0] : '' })}
+                                                                dateFormat="dd/MM/yyyy"
+                                                                maxDate={new Date()}
+                                                                showMonthDropdown
+                                                                showYearDropdown
+                                                                dropdownMode="select"
+                                                                placeholderText="Select date of birth"
+                                                                className={'block w-full border rounded-md pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none transition-all ' +
+                                                                    (validationErrors.dateOfBirth ? 'border-red-400 bg-red-50' : 'border-gray-300 hover:border-purple-300')}
+                                                                wrapperClassName="w-full"
+                                                            />
+                                                        </div>
                                                         {validationErrors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{validationErrors.dateOfBirth}</p>}
                                                     </div>
                                                     <div>
@@ -866,7 +858,6 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
-                                                {/* HIS Section + Roll No */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Section</label>
@@ -892,7 +883,6 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
-                                                {/* HIS Gender + Email — GENDER NOW WORKING */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Gender</label>
@@ -919,7 +909,6 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
-                                                {/* MY password field — Req 1: dual mode for students */}
                                                 <div>
                                                     <label className="block text-sm font-medium">
                                                         Password
@@ -938,7 +927,6 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
-                                                {/* HIS Parent Name + Phone */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium">Parent Name</label>
@@ -964,7 +952,6 @@ export default function UserManagement({ user }) {
                                                     </div>
                                                 </div>
 
-                                                {/* HIS School selector */}
                                                 {(user?.role === 'SUPER_ADMIN' || editingUser) && (
                                                     <div>
                                                         <label className="block text-sm font-medium">School</label>
@@ -979,43 +966,8 @@ export default function UserManagement({ user }) {
                                                         {validationErrors.school && <p className="text-red-500 text-xs mt-1">{validationErrors.school}</p>}
                                                     </div>
                                                 )}
-
-                                                {/* HIS admin tracking fields */}
-                                                <div className="grid grid-cols-3 gap-4 pt-2 border-t">
-                                                    <div>
-                                                        <label className="block text-sm font-medium">Login Count</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            value={formData.loginCount}
-                                                            onChange={e => setFormData({ ...formData, loginCount: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium">Intervention</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            value={formData.intervention}
-                                                            onChange={e => setFormData({ ...formData, intervention: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium">Time Spent (s)</label>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            value={formData.timeSpent}
-                                                            onChange={e => setFormData({ ...formData, timeSpent: e.target.value })}
-                                                            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                                        />
-                                                    </div>
-                                                </div>
                                             </>
                                         ) : (
-                                            // ── Non-student roles — HIS code (password required) ──
                                             <>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
@@ -1045,7 +997,7 @@ export default function UserManagement({ user }) {
                                                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                                                         </svg>
                                                         <p className="text-sm text-purple-700">
-                                                            Enter a password to set it directly, or <strong>leave it blank</strong> to send an email invite to the user.
+                                                            Enter a password to set it directly, or <strong>leave it blank</strong> to send an email invite.
                                                         </p>
                                                     </div>
                                                 )}
@@ -1061,17 +1013,9 @@ export default function UserManagement({ user }) {
                                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                                                             className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
                                                         />
-                                                        <button type="button" onClick={generatePassword} className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300 whitespace-nowrap hover:bg-gray-200">
-                                                            Gen
-                                                        </button>
+                                                        <button type="button" onClick={generatePassword} className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300 whitespace-nowrap hover:bg-gray-200">Gen</button>
                                                         {!editingUser && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFormData({ ...formData, password: '' })}
-                                                                className="mt-1 border border-purple-300 text-purple-600 px-3 rounded-md text-sm whitespace-nowrap hover:bg-purple-50"
-                                                            >
-                                                                Email
-                                                            </button>
+                                                            <button type="button" onClick={() => setFormData({ ...formData, password: '' })} className="mt-1 border border-purple-300 text-purple-600 px-3 rounded-md text-sm whitespace-nowrap hover:bg-purple-50">Email</button>
                                                         )}
                                                     </div>
                                                     {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
@@ -1095,11 +1039,7 @@ export default function UserManagement({ user }) {
 
                                     <div className="mt-6 flex justify-end gap-3">
                                         <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                                        <button
-                                            onClick={handleSaveUser}
-                                            disabled={saving}
-                                            className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50"
-                                        >
+                                        <button onClick={handleSaveUser} disabled={saving} className="px-4 py-2 bg-purple-600 text-white rounded-md disabled:opacity-50">
                                             {getSaveLabel()}
                                         </button>
                                     </div>
@@ -1108,7 +1048,7 @@ export default function UserManagement({ user }) {
                         </div>
                     )}
 
-                    {/* Delete Modal — HIS code */}
+                    {/* Delete Modal */}
                     {isDeleteModalOpen && (
                         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                             <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsDeleteModalOpen(false)} />
