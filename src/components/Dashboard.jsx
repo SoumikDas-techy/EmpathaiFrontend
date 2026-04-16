@@ -36,11 +36,11 @@ function toDataUrl(imageBase64, imageType) {
 }
 
 const BADGE_META = {
-  login:        { emoji: '🔑', color: 'from-blue-400 to-indigo-500',   bg: 'bg-blue-50',   border: 'border-blue-200',   label: 'Login Milestone'     },
-  intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50',  border: 'border-green-200',  label: 'Wellbeing Milestone' },
-  video:        { emoji: '🎬', color: 'from-pink-400 to-rose-500',     bg: 'bg-pink-50',   border: 'border-pink-200',   label: 'Video Completion'    },
-  module:       { emoji: '📚', color: 'from-orange-400 to-amber-500',  bg: 'bg-orange-50', border: 'border-orange-200', label: 'Module Completion'   },
-  default:      { emoji: '🏅', color: 'from-purple-400 to-violet-500', bg: 'bg-purple-50', border: 'border-purple-200', label: 'Achievement'         },
+  login: { emoji: '🔑', color: 'from-blue-400 to-indigo-500', bg: 'bg-blue-50', border: 'border-blue-200', label: 'Login Milestone' },
+  intervention: { emoji: '💪', color: 'from-green-400 to-emerald-500', bg: 'bg-green-50', border: 'border-green-200', label: 'Wellbeing Milestone' },
+  video: { emoji: '🎬', color: 'from-pink-400 to-rose-500', bg: 'bg-pink-50', border: 'border-pink-200', label: 'Video Completion' },
+  module: { emoji: '📚', color: 'from-orange-400 to-amber-500', bg: 'bg-orange-50', border: 'border-orange-200', label: 'Module Completion' },
+  default: { emoji: '🏅', color: 'from-purple-400 to-violet-500', bg: 'bg-purple-50', border: 'border-purple-200', label: 'Achievement' },
 }
 
 function getBadgeMeta(triggerType) {

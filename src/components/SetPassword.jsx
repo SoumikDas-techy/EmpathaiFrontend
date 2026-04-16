@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 // ─── API calls (inline, no authApi dependency — this page is fully public) ───
 
-const API_BASE = 'http://localhost:8080'
+const API_BASE = 'http://localhost:8081'
 
 async function validateToken(token) {
     const res = await fetch(`${API_BASE}/api/auth/validate-token?token=${token}`)

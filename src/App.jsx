@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Header from './components/pagelayout/Header'
 import Hero from './components/pagelayout/Hero'
 import WhyEmpathAI from './components/WhyEmpathAI'
@@ -7,12 +7,12 @@ import InclusivityFocus from './components/InclusivityFocus'
 import Dashboard from './components/Dashboard'
 import LoginModal from './components/LoginModal'
 import AdminPanel from './components/admin/AdminPanel'
-import Auth from './components/Auth'                    // ← Added from second file
-import SetPassword from './components/SetPassword'     // ← Added from second file
+import Auth from './components/Auth'
+import SetPassword from './components/SetPassword'
 
 import { getCurrentUser, logout as authLogout, isAdminRole } from './api/authApi.js'
 import { clearTokens } from './api/apiClient.js'
-import { updateTimeSpent } from './api/usermanagementapi.js'
+import useTimeTracker from './api/useTimeTracker'   // ← replaces updateTimeSpent import
 
 // Backend role enums that should route to the admin panel
 const ADMIN_ROLES = ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PSYCHOLOGIST', 'CONTENT_ADMIN', 'TEACHER']
@@ -27,12 +27,8 @@ function isSetPasswordRoute() {
   return window.location.pathname === '/set-password'
 }
 
-// Sync time to backend every 60 seconds
-const SYNC_INTERVAL_MS = 60 * 1000
-
 function App() {
   const [currentPage, setCurrentPage] = useState(() => {
-    // Check URL first — /set-password must work even when user is not logged in
     if (isSetPasswordRoute()) return 'set-password'
     return 'home'
   })
@@ -40,86 +36,12 @@ function App() {
   const [user, setUser] = useState(null)
   const [showLoginModal, setShowLoginModal] = useState(false)
 
-  // ── Time tracking refs ─────────────────────────────────────────────────────
-  const lastSyncedRef = useRef(null)       // timestamp of last sync
-  const syncIntervalRef = useRef(null)     // setInterval reference
-  const currentUserRef = useRef(null)      // always up-to-date user ref
-
-  // Keep currentUserRef in sync with user state
-  useEffect(() => {
-    currentUserRef.current = user
-  }, [user])
-
-  // ── Send elapsed time to backend ──────────────────────────────────────────
-  const syncTimeSpent = async () => {
-    const currentUser = currentUserRef.current
-    if (!currentUser || isAdmin(currentUser)) return
-    if (!lastSyncedRef.current) return
-
-    const now = Date.now()
-    const elapsedSeconds = Math.floor((now - lastSyncedRef.current) / 1000)
-    lastSyncedRef.current = now
-
-    if (elapsedSeconds > 0) {
-      try {
-        await updateTimeSpent(currentUser.id, elapsedSeconds)
-      } catch (err) {
-        console.error('Failed to sync time spent:', err.message)
-      }
-    }
-  }
-
-  // ── Start time tracking ───────────────────────────────────────────────────
-  const startTimeTracking = (userData) => {
-    if (!userData || isAdmin(userData)) return
-
-    lastSyncedRef.current = Date.now()
-
-    // Clear any existing interval first
-    if (syncIntervalRef.current) {
-      clearInterval(syncIntervalRef.current)
-    }
-
-    // Sync every 60 seconds
-    syncIntervalRef.current = setInterval(() => {
-      syncTimeSpent()
-    }, SYNC_INTERVAL_MS)
-  }
-
-  // ── Stop time tracking and send final time ────────────────────────────────
-  const stopTimeTracking = async () => {
-    if (syncIntervalRef.current) {
-      clearInterval(syncIntervalRef.current)
-      syncIntervalRef.current = null
-    }
-
-    // Send remaining unsent time
-    await syncTimeSpent()
-
-    lastSyncedRef.current = null
-  }
-
-  // ── Handle tab close / page unload ───────────────────────────────────────
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const currentUser = currentUserRef.current
-      if (!currentUser || isAdmin(currentUser)) return
-      if (!lastSyncedRef.current) return
-
-      const elapsedSeconds = Math.floor((Date.now() - lastSyncedRef.current) / 1000)
-      if (elapsedSeconds > 0) {
-        // sendBeacon is reliable on page close
-        const blob = new Blob(
-          [JSON.stringify({ seconds: elapsedSeconds })],
-          { type: 'application/json' }
-        )
-        navigator.sendBeacon(`/api/users/${currentUser.id}/time-spent`, blob)
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [])
+  // ── Time tracking ─────────────────────────────────────────────────────────
+  // Pass the student's id to the hook; pass null for admins or when logged out.
+  // The hook auto-starts on mount, syncs every 60 s, and flushes on logout /
+  // tab-hide / page-unload — no manual start/stop needed anywhere.
+  const studentId = user && !isAdmin(user) ? user.id : null
+  useTimeTracker(studentId)
 
   // ── Restore session on page load ──────────────────────────────────────────
   useEffect(() => {
@@ -130,11 +52,9 @@ function App() {
     if (savedUser) {
       setUser(savedUser)
       setCurrentPage(isAdmin(savedUser) ? 'admin' : 'dashboard')
-      startTimeTracking(savedUser)
     }
 
     const handleAuthLogout = () => {
-      stopTimeTracking()
       setUser(null)
       setCurrentPage('home')
     }
@@ -156,7 +76,7 @@ function App() {
       observer.disconnect()
       window.removeEventListener('auth:logout', handleAuthLogout)
     }
-  }, [currentPage])   // Note: kept dependency on currentPage as in second version
+  }, [currentPage])
 
   const navigateToAuth = () => {
     setShowLoginModal(true)
@@ -167,9 +87,7 @@ function App() {
     localStorage.setItem('user', JSON.stringify(userData))
     setCurrentPage(isAdmin(userData) ? 'admin' : 'dashboard')
     setShowLoginModal(false)
-
-    // Start tracking time when student logs in
-    startTimeTracking(userData)
+    // No startTimeTracking() call needed — hook reacts to studentId becoming non-null
   }
 
   const navigateToHome = () => {
@@ -180,19 +98,19 @@ function App() {
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
     setCurrentPage(isAdmin(userData) ? 'admin' : 'dashboard')
+    // No startTimeTracking() call needed — hook reacts to studentId becoming non-null
   }
 
   const handleLogout = async () => {
-    // Stop tracking and send final time before logout
-    await stopTimeTracking()
-
+    // No stopTimeTracking() needed — hook flushes remaining time when studentId
+    // becomes null (i.e. when setUser(null) triggers a re-render below)
     authLogout()
     clearTokens()
     setUser(null)
     setCurrentPage('home')
   }
 
-  // ── Route: /set-password?token=xxx  (fully public, no auth needed) ──
+  // ── Route: /set-password?token=xxx  (fully public, no auth needed) ────────
   if (currentPage === 'set-password') {
     return <SetPassword />
   }

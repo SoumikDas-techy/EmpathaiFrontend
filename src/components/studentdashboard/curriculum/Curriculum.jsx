@@ -111,7 +111,7 @@ function QuizSection({ quizzes }) {
 
       {q.questionImageType && (
         <img
-          src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/curriculum/quiz/${q.id}/image`}
+          src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/curriculum/quiz/${q.id}/image`}
           alt="question"
           className="mb-4 rounded-lg max-h-48 object-contain"
         />
@@ -177,7 +177,7 @@ function QuizSection({ quizzes }) {
 // ─── SubTopic detail ───────────────────────────────────────────────────────────
 function SubTopicView({ subTopic, onBack, navigateToChat }) {
   const embedUrl = toEmbedUrl(subTopic.videoUrl)
-  const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
   const objectives = subTopic.learningObjectives
     ? subTopic.learningObjectives.split('\n').filter(Boolean)
     : []
