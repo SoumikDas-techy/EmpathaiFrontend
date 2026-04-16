@@ -23,7 +23,7 @@ const SUBJECT_OPTIONS = [
 const CLASS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => {
     const s = ['th', 'st', 'nd', 'rd'], v = n % 100
     const ordinal = n + (s[(v - 20) % 10] || s[v] || s[0])
-    return { label: `Class ${ordinal}`, value: n }   
+    return { label: `Class ${ordinal}`, value: n }
 })
 
 const EMPTY_FORM = {
@@ -51,17 +51,17 @@ const toggleItem = (arr, item) =>
 // ── component ────────────────────────────────────────────────────────────────
 
 export default function TeacherTab({ user, schoolsData = [] }) {
-    const [teachers, setTeachers]           = useState([])
-    const [loading, setLoading]             = useState(false)
-    const [searchTerm, setSearchTerm]       = useState('')
-    const [apiError, setApiError]           = useState(null)
+    const [teachers, setTeachers] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [apiError, setApiError] = useState(null)
     const [successMessage, setSuccessMessage] = useState(null)
 
     // modal state
-    const [isModalOpen, setIsModalOpen]     = useState(false)
+    const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingTeacher, setEditingTeacher] = useState(null)
-    const [formData, setFormData]           = useState(EMPTY_FORM)
-    const [saving, setSaving]               = useState(false)
+    const [formData, setFormData] = useState(EMPTY_FORM)
+    const [saving, setSaving] = useState(false)
     const [validationErrors, setValidationErrors] = useState({})
 
     // delete modal
@@ -69,8 +69,8 @@ export default function TeacherTab({ user, schoolsData = [] }) {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
     // reset password modal
-    const [resetTarget, setResetTarget]     = useState(null)
-    const [resetResult, setResetResult]     = useState(null)
+    const [resetTarget, setResetTarget] = useState(null)
+    const [resetResult, setResetResult] = useState(null)
 
     // ── data loading ─────────────────────────────────────────────────────────
 
@@ -103,7 +103,6 @@ export default function TeacherTab({ user, schoolsData = [] }) {
         setEditingTeacher(null)
         setFormData({
             ...EMPTY_FORM,
-            password: generatePassword(),
             school: user?.role === 'SCHOOL_ADMIN' ? (user.school || '') : '',
         })
         setIsModalOpen(true)
@@ -113,13 +112,13 @@ export default function TeacherTab({ user, schoolsData = [] }) {
         setValidationErrors({})
         setEditingTeacher(t)
         setFormData({
-            name:           t.name || '',
-            email:          t.email || '',
-            password:       '',
-            phoneNumber:    t.phoneNumber || '',
-            subjects:       Array.isArray(t.subjects) ? t.subjects : [],
+            name: t.name || '',
+            email: t.email || '',
+            password: '',
+            phoneNumber: t.phoneNumber || '',
+            subjects: Array.isArray(t.subjects) ? t.subjects : [],
             classesCovered: Array.isArray(t.classesCovered) ? t.classesCovered : [],
-            school:         t.school || '',
+            school: t.school || '',
         })
         setIsModalOpen(true)
     }
@@ -128,11 +127,10 @@ export default function TeacherTab({ user, schoolsData = [] }) {
 
     const validate = () => {
         const errors = {}
-        if (!formData.name.trim())  errors.name  = 'Name is required'
+        if (!formData.name.trim()) errors.name = 'Name is required'
         if (!formData.email.trim()) errors.email = 'Email is required'
         else if (!formData.email.includes('@')) errors.email = 'Invalid email'
-        if (!editingTeacher && !formData.password.trim())
-            errors.password = 'Password is required'
+        // Password is optional on create: blank = send email invite
         if (formData.subjects.length === 0)
             errors.subjects = 'Select at least one subject'
         if (formData.classesCovered.length === 0)
@@ -156,11 +154,11 @@ export default function TeacherTab({ user, schoolsData = [] }) {
         setSaving(true)
         try {
             const payload = {
-                name:           formData.name,
-                email:          formData.email,
-                password:       formData.password || undefined,
-                phoneNumber:    formData.phoneNumber || undefined,
-                subjects:       formData.subjects,
+                name: formData.name,
+                email: formData.email,
+                password: formData.password || undefined,
+                phoneNumber: formData.phoneNumber || undefined,
+                subjects: formData.subjects,
                 classesCovered: formData.classesCovered,
                 school: user?.role === 'SCHOOL_ADMIN'
                     ? user.school
@@ -172,7 +170,12 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                 await createTeacher(payload)
             }
             setIsModalOpen(false)
-            showSuccess('Teacher saved successfully!')
+            const msg = editingTeacher
+                ? 'Teacher saved successfully!'
+                : formData.password?.trim()
+                    ? 'Teacher created successfully!'
+                    : 'Teacher created! Password setup email sent to ' + formData.email
+            showSuccess(msg)
             await loadTeachers()
         } catch (err) {
             setApiError(err.message || 'Save failed')
@@ -322,7 +325,7 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                             ? <span className="inline-flex items-center gap-1">
                                                 <PhoneIcon className="w-3.5 h-3.5 text-gray-400" />
                                                 {t.phoneNumber}
-                                              </span>
+                                            </span>
                                             : <span className="text-gray-300">—</span>}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
@@ -339,13 +342,13 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                     <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px]">
                                         <div className="flex flex-wrap gap-1">
                                             {(t.classesCovered || []).map(c => {
-    const found = CLASS_OPTIONS.find(o => o.value === c)
-    return (
-        <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            {found ? found.label : `Class ${c}`}
-        </span>
-    )
-})}
+                                                const found = CLASS_OPTIONS.find(o => o.value === c)
+                                                return (
+                                                    <span key={c} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                        {found ? found.label : `Class ${c}`}
+                                                    </span>
+                                                )
+                                            })}
                                             {(!t.classesCovered || t.classesCovered.length === 0) &&
                                                 <span className="text-gray-300">—</span>}
                                         </div>
@@ -454,15 +457,32 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                     )}
                                 </div>
 
+                                {/* Email invite banner (create mode only) */}
+                                {!editingTeacher && (
+                                    <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-md p-3">
+                                        <svg className="h-5 w-5 text-purple-500 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                        </svg>
+                                        <p className="text-sm text-purple-700">
+                                            Enter a password to set it directly, or <strong>leave it blank</strong> to send an email invite to the teacher.
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* Password */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
-                                        Password {!editingTeacher && <span className="text-red-500">*</span>}
-                                        {editingTeacher && <span className="text-gray-400 font-normal"> (leave blank to keep current)</span>}
+                                        Password{' '}
+                                        {editingTeacher
+                                            ? <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
+                                            : <span className="text-gray-400 font-normal">(leave blank to send email invite)</span>
+                                        }
                                     </label>
                                     <div className="mt-1 flex gap-2">
                                         <input
                                             type="text"
+                                            placeholder={!editingTeacher ? 'Enter password or leave blank for email' : ''}
                                             value={formData.password}
                                             onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
                                             className={`block w-full border rounded-md p-2 text-sm ${validationErrors.password ? 'border-red-500' : 'border-gray-300'}`}
@@ -472,8 +492,17 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                             onClick={() => setFormData(p => ({ ...p, password: generatePassword() }))}
                                             className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm hover:bg-gray-200 whitespace-nowrap"
                                         >
-                                            Generate
+                                            Gen
                                         </button>
+                                        {!editingTeacher && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData(p => ({ ...p, password: '' }))}
+                                                className="px-3 py-2 border border-purple-300 text-purple-600 rounded-md text-sm hover:bg-purple-50 whitespace-nowrap"
+                                            >
+                                                Email
+                                            </button>
+                                        )}
                                     </div>
                                     {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                 </div>
@@ -498,11 +527,10 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                                             ...p,
                                                             subjects: toggleItem(p.subjects, subject)
                                                         }))}
-                                                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                                                            selected
+                                                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${selected
                                                                 ? 'bg-blue-600 text-white border-blue-600'
                                                                 : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {selected && <span className="mr-1">✓</span>}
                                                         {subject}
@@ -534,11 +562,10 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                                             ...p,
                                                             classesCovered: toggleItem(p.classesCovered, value)
                                                         }))}
-                                                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                                                            selected
+                                                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${selected
                                                                 ? 'bg-purple-600 text-white border-purple-600'
                                                                 : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {selected && <span className="mr-1">✓</span>}
                                                         {label}
@@ -564,7 +591,7 @@ export default function TeacherTab({ user, schoolsData = [] }) {
                                     disabled={saving}
                                     className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
                                 >
-                                    {saving ? 'Saving…' : 'Save Teacher'}
+                                    {saving ? 'Saving…' : editingTeacher ? 'Save Teacher' : formData.password?.trim() ? 'Create Teacher' : 'Create & Send Email'}
                                 </button>
                             </div>
                         </div>

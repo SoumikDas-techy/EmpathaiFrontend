@@ -265,8 +265,7 @@ export default function UserManagement({ user }) {
                 role: activeTab,
                 school: activeTab === 'student' && schoolName ? schoolName : '',
             })
-            // Auto-generate password for non-student, non-school roles
-            if (activeTab !== 'schools' && activeTab !== 'student') generatePassword()
+            // Don't auto-generate: leave blank so email invite is the default
         }
         setIsModalOpen(true)
     }
@@ -288,9 +287,7 @@ export default function UserManagement({ user }) {
             if (!email?.trim()) errors.email = 'Email is required'
             else if (!email.includes('@')) errors.email = 'Invalid email format'
 
-            // Non-student roles: password required on create (no MFA in his flow for these)
-            if (activeTab !== 'student' && !editingUser && !password?.trim())
-                errors.password = 'Password is required'
+            // Password is optional for all roles: blank = send email invite
 
             if (activeTab === 'student') {
                 if (!school?.trim()) errors.school = 'School is required'
@@ -357,11 +354,11 @@ export default function UserManagement({ user }) {
 
             // Smart success message depending on mode
             let msg
-            if (activeTab === 'student' && !editingUser) {
+            if (!editingUser && activeTab !== 'schools') {
                 if (formData.password?.trim()) {
-                    msg = 'Student created successfully!'
+                    msg = roleTitles[activeTab] + ' created successfully!'
                 } else {
-                    msg = 'Student created! Password setup email sent to ' + formData.email
+                    msg = roleTitles[activeTab] + ' created! Password setup email sent to ' + formData.email
                 }
             } else {
                 msg = (activeTab === 'schools' ? 'School' : 'User') + ' saved successfully!'
@@ -461,10 +458,9 @@ export default function UserManagement({ user }) {
     const getSaveLabel = () => {
         if (saving) return 'Saving...'
         if (editingUser) return 'Save'
-        if (activeTab === 'student') {
-            return formData.password?.trim() ? 'Create Student' : 'Create & Send Email'
-        }
-        return 'Save'
+        if (activeTab === 'schools') return 'Save'
+        // For all user roles: password blank = email invite
+        return formData.password?.trim() ? 'Create ' + roleTitles[activeTab] : 'Create & Send Email'
     }
 
     return (
@@ -1043,18 +1039,41 @@ export default function UserManagement({ user }) {
                                                         />
                                                     </div>
                                                 </div>
+                                                {!editingUser && (
+                                                    <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-md p-3">
+                                                        <svg className="h-5 w-5 text-purple-500 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                                                        </svg>
+                                                        <p className="text-sm text-purple-700">
+                                                            Enter a password to set it directly, or <strong>leave it blank</strong> to send an email invite to the user.
+                                                        </p>
+                                                    </div>
+                                                )}
                                                 <div>
-                                                    <label className="block text-sm font-medium">Password</label>
+                                                    <label className="block text-sm font-medium">
+                                                        Password {!editingUser && <span className="text-gray-400 font-normal">(leave blank to send email invite)</span>}
+                                                    </label>
                                                     <div className="flex gap-2">
                                                         <input
                                                             type="text"
+                                                            placeholder={!editingUser ? 'Enter password or leave blank for email' : ''}
                                                             value={formData.password}
                                                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                                                             className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.password ? 'border-red-500' : 'border-gray-300')}
                                                         />
-                                                        <button type="button" onClick={generatePassword} className="bg-gray-100 px-3 rounded-md text-sm border border-gray-300">
-                                                            Generate
+                                                        <button type="button" onClick={generatePassword} className="mt-1 bg-gray-100 px-3 rounded-md text-sm border border-gray-300 whitespace-nowrap hover:bg-gray-200">
+                                                            Gen
                                                         </button>
+                                                        {!editingUser && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFormData({ ...formData, password: '' })}
+                                                                className="mt-1 border border-purple-300 text-purple-600 px-3 rounded-md text-sm whitespace-nowrap hover:bg-purple-50"
+                                                            >
+                                                                Email
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     {validationErrors.password && <p className="text-red-500 text-xs mt-1">{validationErrors.password}</p>}
                                                 </div>
