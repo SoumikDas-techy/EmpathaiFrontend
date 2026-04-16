@@ -1,25 +1,21 @@
-
 import { useEffect, useRef, useCallback } from 'react';
-
-const API_BASE = 'http://localhost:8081';
 
 async function sendTimeSpent(userId, seconds) {
     if (!userId || seconds <= 0) return;
 
     try {
-        const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
-        await fetch(`${API_BASE}/api/users/${userId}/time-spent`, {
+        const token = localStorage.getItem('access_token') || '';
+        await fetch('/api/users/' + userId + '/time-spent', {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                ...(token && { Authorization: `Bearer ${token}` }),
+                ...(token && { Authorization: 'Bearer ' + token }),
             },
             body: JSON.stringify({ seconds }),
-            keepalive: true,           // crucial for background sends
+            keepalive: true,
         });
     } catch (err) {
         console.warn('Time-spent sync failed:', err);
-        // Do NOT throw — analytics should never break the app
     }
 }
 
@@ -42,25 +38,22 @@ export default function useTimeTracker(userId) {
 
         lastSyncRef.current = Date.now();
 
-        // Auto-sync every 60 seconds while active
-        intervalRef.current = setInterval(flush, 60_000);
+        // Auto-sync every 60 seconds
+        intervalRef.current = setInterval(flush, 60000);
 
-        // Better unload handling: visibilitychange + pagehide
         const handleVisibilityOrHide = () => {
-            if (document.visibilityState === 'hidden' ||
-                (typeof document.visibilityState === 'undefined' && document.hidden)) {
+            if (document.visibilityState === 'hidden') {
                 flush();
             }
         };
 
         const handlePageHide = () => {
-            flush();   // final flush when page is being discarded
+            flush();
         };
 
         document.addEventListener('visibilitychange', handleVisibilityOrHide);
-        window.addEventListener('pagehide', handlePageHide);   // modern alternative to beforeunload
+        window.addEventListener('pagehide', handlePageHide);
 
-        // Final flush on unmount (in-app navigation / logout)
         return () => {
             clearInterval(intervalRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityOrHide);

@@ -27,6 +27,8 @@ import Schedule from './studentdashboard/schedule/Schedule';
 import { getWeekTasks } from '../api/scheduleApi.js';
 import { fetchMyBadges } from '../api/rewardsApi.js';
 import { getLatestMood, getLatestSleep } from '../api/wellnessApi.js';
+import { saveMoodEntry, saveSleepEntry } from '../api/wellnessApi.js';
+import { completeIntervention } from '../api/activitiesApi.js';
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
@@ -50,21 +52,6 @@ function getBadgeMeta(triggerType) {
 function formatDate(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-const MOOD_EMOJI = {
-  happy: '😊',
-  neutral: '😐',
-  sad: '😔',
-  anxious: '😰',
-  angry: '😡',
-}
-
-const QUALITY_COLOR = {
-  excellent: 'text-green-600 bg-green-50 border-green-200',
-  good: 'text-blue-600 bg-blue-50 border-blue-200',
-  fair: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-  poor: 'text-red-600 bg-red-50 border-red-200',
 }
 
 export default function Dashboard({ user, onLogout }) {
@@ -114,11 +101,6 @@ export default function Dashboard({ user, onLogout }) {
       ...tasks,
       [day]: tasks[day].map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
     })
-  }
-
-  const navigateToChat = (message) => {
-    setChatMessage(message)
-    setActiveTab('chatbuddy')
   }
 
   const sidebarItems = [
@@ -645,13 +627,25 @@ function Overview({ user, setActiveTab }) {
   )
 }
 
-// ── RightSidebar — shows latest mood and sleep from DB ────────────────────────
+// ── RightSidebar ──────────────────────────────────────────────────────────────
 function RightSidebar({ user, setActiveTab }) {
   const [completedTasks, setCompletedTasks] = useState({})
+
+  // Mood state
   const [latestMood, setLatestMood] = useState(null)
-  const [latestSleep, setLatestSleep] = useState(null)
   const [moodLoading, setMoodLoading] = useState(true)
+  const [selectedMood, setSelectedMood] = useState(null)
+  const [moodNote, setMoodNote] = useState('')
+  const [moodSaving, setMoodSaving] = useState(false)
+  const [moodSaved, setMoodSaved] = useState(false)
+
+  // Sleep state
+  const [latestSleep, setLatestSleep] = useState(null)
   const [sleepLoading, setSleepLoading] = useState(true)
+  const [sleepHours, setSleepHours] = useState(7)
+  const [sleepQuality, setSleepQuality] = useState('')
+  const [sleepSaving, setSleepSaving] = useState(false)
+  const [sleepSaved, setSleepSaved] = useState(false)
 
   const handleTaskToggle = (taskId) => {
     setCompletedTasks(prev => ({ ...prev, [taskId]: !prev[taskId] }))
@@ -659,7 +653,6 @@ function RightSidebar({ user, setActiveTab }) {
 
   useEffect(() => {
     if (!user?.id) return
-
     getLatestMood(user.id)
       .then(data => setLatestMood(data))
       .catch(err => console.error('Failed to load latest mood:', err))
@@ -671,11 +664,20 @@ function RightSidebar({ user, setActiveTab }) {
       .finally(() => setSleepLoading(false))
   }, [user?.id])
 
+  const MOOD_OPTIONS = [
+    { emoji: '😊', label: 'Happy', value: 'happy' },
+    { emoji: '😐', label: 'Okay', value: 'neutral' },
+    { emoji: '😔', label: 'Sad', value: 'sad' },
+    { emoji: '😰', label: 'Anxious', value: 'anxious' },
+    { emoji: '😡', label: 'Angry', value: 'angry' },
+  ]
+
+  const MOOD_EMOJI = {
+    happy: '😊', neutral: '😐', sad: '😔', anxious: '😰', angry: '😡',
+  }
+
   const QUALITY_LABEL = {
-    excellent: 'Excellent',
-    good: 'Good',
-    fair: 'Fair',
-    poor: 'Poor',
+    excellent: 'Excellent', good: 'Good', fair: 'Fair', poor: 'Poor',
   }
 
   const QUALITY_COLOR = {
@@ -685,81 +687,236 @@ function RightSidebar({ user, setActiveTab }) {
     poor: 'text-red-600 bg-red-50 border-red-200',
   }
 
-  const MOOD_EMOJI = {
-    happy: '😊',
-    neutral: '😐',
-    sad: '😔',
-    anxious: '😰',
-    angry: '😡',
+  const saveMood = async () => {
+    if (!selectedMood || !user?.id) return
+    setMoodSaving(true)
+    try {
+      const saved = await saveMoodEntry(user.id, selectedMood, moodNote)
+      setLatestMood(saved)
+      setMoodSaved(true)
+      setSelectedMood(null)
+      setMoodNote('')
+      setTimeout(() => setMoodSaved(false), 3000)
+      try {
+        await completeIntervention(user.id, 'mood')
+      } catch (err) {
+        console.error('Failed to record mood intervention:', err)
+      }
+    } catch (err) {
+      console.error('Failed to save mood:', err)
+    } finally {
+      setMoodSaving(false)
+    }
+  }
+
+  const saveSleep = async () => {
+    if (!sleepQuality || !user?.id) return
+    setSleepSaving(true)
+    const totalMinutes = Math.round(sleepHours * 60)
+    const wakeHour = 7
+    const bedMinutes = (wakeHour * 60) - totalMinutes
+    const bedHour = Math.floor(((bedMinutes % 1440) + 1440) % 1440 / 60)
+    const bedMin = ((bedMinutes % 1440) + 1440) % 1440 % 60
+    const bedtime = (bedHour < 10 ? '0' : '') + bedHour + ':' + (bedMin < 10 ? '0' : '') + bedMin
+    const wakeTime = '07:00'
+    try {
+      const saved = await saveSleepEntry(user.id, bedtime, wakeTime, sleepQuality)
+      setLatestSleep(saved)
+      setSleepSaved(true)
+      setSleepQuality('')
+      setSleepHours(7)
+      setTimeout(() => setSleepSaved(false), 3000)
+      try {
+        await completeIntervention(user.id, 'sleep')
+      } catch (err) {
+        console.error('Failed to record sleep intervention:', err)
+      }
+    } catch (err) {
+      console.error('Failed to save sleep:', err)
+    } finally {
+      setSleepSaving(false)
+    }
+  }
+
+  const getSleepLabel = (hours) => {
+    if (hours < 4) return 'Very Low'
+    if (hours < 6) return 'Low'
+    if (hours < 7) return 'Fair'
+    if (hours < 9) return 'Good'
+    return 'Excellent'
+  }
+
+  const getSleepColor = (hours) => {
+    if (hours < 4) return 'text-red-600'
+    if (hours < 6) return 'text-orange-600'
+    if (hours < 7) return 'text-yellow-600'
+    if (hours < 9) return 'text-green-600'
+    return 'text-blue-600'
+  }
+
+  const getSliderBg = (hours) => {
+    const pct = ((hours - 1) / 11) * 100
+    if (hours < 4) return 'linear-gradient(to right, #ef4444 0%, #ef4444 ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'
+    if (hours < 6) return 'linear-gradient(to right, #f97316 0%, #f97316 ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'
+    if (hours < 7) return 'linear-gradient(to right, #eab308 0%, #eab308 ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'
+    if (hours < 9) return 'linear-gradient(to right, #22c55e 0%, #22c55e ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'
+    return 'linear-gradient(to right, #3b82f6 0%, #3b82f6 ' + pct + '%, #e5e7eb ' + pct + '%, #e5e7eb 100%)'
   }
 
   return (
     <div className="font-lora">
 
-      {/* Latest Mood */}
+      {/* Mood Tracker */}
       <div className="mb-6">
         <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-          Latest Mood
+          How are you feeling?
         </h3>
         <div className="bg-white border-2 border-purple-200 rounded-xl p-4">
           {moodLoading ? (
             <div className="flex justify-center py-3">
               <div className="w-5 h-5 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
             </div>
-          ) : latestMood ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{MOOD_EMOJI[latestMood.mood] || '😐'}</span>
-                <div>
-                  <p className="text-sm font-bold text-gray-900 capitalize">{latestMood.mood}</p>
-                  {latestMood.note && <p className="text-xs text-gray-500 truncate max-w-[140px]">{latestMood.note}</p>}
-                  <p className="text-[10px] text-gray-400">{new Date(latestMood.loggedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
-                </div>
-              </div>
-              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Update</button>
+          ) : moodSaved ? (
+            <div className="text-center py-2">
+              <span className="text-3xl">{MOOD_EMOJI[latestMood?.mood] || '😊'}</span>
+              <p className="text-sm text-green-600 font-bold mt-2">Mood saved!</p>
             </div>
           ) : (
-            <div className="text-center py-2">
-              <p className="text-sm text-gray-400 mb-2">No mood logged yet</p>
-              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Log your mood</button>
+            <div>
+              {latestMood && !selectedMood && (
+                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                  <span className="text-2xl">{MOOD_EMOJI[latestMood.mood] || '😐'}</span>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-gray-700 capitalize">Last: {latestMood.mood}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(latestMood.loggedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-between mb-3">
+                {MOOD_OPTIONS.map((mood) => (
+                  <button
+                    key={mood.value}
+                    onClick={() => setSelectedMood(mood.value)}
+                    className={'flex flex-col items-center gap-1 p-1.5 rounded-lg transition-all ' +
+                      (selectedMood === mood.value
+                        ? 'bg-purple-100 scale-110 border-2 border-purple-400'
+                        : 'hover:bg-gray-50 border-2 border-transparent')}
+                  >
+                    <span className="text-2xl">{mood.emoji}</span>
+                    <span className="text-[9px] font-bold text-gray-500">{mood.label}</span>
+                  </button>
+                ))}
+              </div>
+              {selectedMood && (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={moodNote}
+                    onChange={(e) => setMoodNote(e.target.value)}
+                    placeholder="Add a note (optional)"
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-300 focus:border-purple-400 outline-none"
+                  />
+                  <button
+                    onClick={saveMood}
+                    disabled={moodSaving}
+                    className="w-full bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  >
+                    {moodSaving ? 'Saving...' : 'Save Mood'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Latest Sleep */}
+      {/* Sleep Tracker */}
       <div className="mb-6">
         <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-          Last Night Sleep
+          Last Night's Sleep
         </h3>
         <div className="bg-white border-2 border-purple-200 rounded-xl p-4">
           {sleepLoading ? (
             <div className="flex justify-center py-3">
               <div className="w-5 h-5 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
             </div>
-          ) : latestSleep ? (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🌙</span>
-                  <div>
-                    <p className="text-xs text-gray-500">Bedtime: <span className="font-bold text-gray-800">{latestSleep.bedtime}</span></p>
-                    <p className="text-xs text-gray-500">Wake: <span className="font-bold text-gray-800">{latestSleep.wakeTime}</span></p>
-                  </div>
-                </div>
-                <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Update</button>
-              </div>
-              <span className={'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ' + (QUALITY_COLOR[latestSleep.quality] || 'text-gray-600 bg-gray-50 border-gray-200')}>
-                {QUALITY_LABEL[latestSleep.quality] || latestSleep.quality}
-              </span>
-              <p className="text-[10px] text-gray-400 mt-1">{new Date(latestSleep.loggedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+          ) : sleepSaved ? (
+            <div className="text-center py-2">
+              <span className="text-3xl">🌙</span>
+              <p className="text-sm text-green-600 font-bold mt-2">Sleep logged!</p>
             </div>
           ) : (
-            <div className="text-center py-2">
-              <p className="text-sm text-gray-400 mb-2">No sleep logged yet</p>
-              <button onClick={() => setActiveTab('activities')} className="text-xs text-purple-600 font-bold hover:underline">Log your sleep</button>
+            <div>
+              {latestSleep && (
+                <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                  <span className="text-xl">🌙</span>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500">Last: {latestSleep.bedtime} - {latestSleep.wakeTime}</p>
+                    <span className={'inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold border mt-0.5 ' +
+                      (QUALITY_COLOR[latestSleep.quality] || 'text-gray-600 bg-gray-50 border-gray-200')}>
+                      {QUALITY_LABEL[latestSleep.quality] || latestSleep.quality}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Sleep hours slider */}
+              <div className="mb-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-bold text-gray-700">Hours of sleep</span>
+                  <span className={'text-sm font-black ' + getSleepColor(sleepHours)}>
+                    {sleepHours}h - {getSleepLabel(sleepHours)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  step="0.5"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(parseFloat(e.target.value))}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style={{ background: getSliderBg(sleepHours) }}
+                />
+                <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                  <span>1h</span>
+                  <span>4h</span>
+                  <span>7h</span>
+                  <span>10h</span>
+                  <span>12h</span>
+                </div>
+              </div>
+
+              {/* Sleep quality buttons */}
+              <div className="mb-3">
+                <p className="text-xs font-bold text-gray-700 mb-2">How did you sleep?</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {['poor', 'fair', 'good', 'excellent'].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setSleepQuality(q)}
+                      className={'px-2 py-1.5 rounded-lg text-[10px] font-bold border-2 transition-all capitalize ' +
+                        (sleepQuality === q
+                          ? (QUALITY_COLOR[q] || 'text-gray-600 bg-gray-50 border-gray-200') + ' ring-2 ring-purple-300'
+                          : 'text-gray-500 bg-gray-50 border-gray-100 hover:border-gray-300')}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={saveSleep}
+                disabled={!sleepQuality || sleepSaving}
+                className="w-full bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {sleepSaving ? 'Saving...' : 'Log Sleep'}
+              </button>
             </div>
           )}
         </div>

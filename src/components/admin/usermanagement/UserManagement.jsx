@@ -253,9 +253,7 @@ export default function UserManagement({ user }) {
                 gender: full.gender || '',
                 contactName: full.contactName || '',
                 rollNo: full.rollNo || '',
-                loginCount: full.loginCount ?? 0,
-                intervention: full.interventionSessionCount ?? full.intervention ?? 0,
-                timeSpent: full.timeSpent ?? 0,
+               
             })
         } else {
             setEditingUser(null)
@@ -959,6 +957,7 @@ export default function UserManagement({ user }) {
                                                             value={formData.parentPhone}
                                                             onChange={e => setFormData({ ...formData, parentPhone: e.target.value })}
                                                             placeholder="10-digit number"
+                                                            maxLength={10}
                                                             className={'mt-1 block w-full border rounded-md p-2 ' + (validationErrors.parentPhone ? 'border-red-500' : 'border-gray-300')}
                                                         />
                                                         {validationErrors.parentPhone && <p className="text-red-500 text-xs mt-1">{validationErrors.parentPhone}</p>}
