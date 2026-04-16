@@ -1,7 +1,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 
-const API_BASE = 'http://localhost:8081';  // or import from your api config
+const API_BASE = 'http://localhost:8081';
 
 async function sendTimeSpent(userId, seconds) {
     if (!userId || seconds <= 0) return;
