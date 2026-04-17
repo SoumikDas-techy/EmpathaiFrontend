@@ -61,7 +61,19 @@ export default function Dashboard({ user, onLogout }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false)
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false)
-  const [activeDay, setActiveDay] = useState('Monday')
+
+  // Initialise to today's actual day (Mon–Sun). Recalculates on mount so it is
+  // always correct regardless of when the component first renders.
+  const [activeDay, setActiveDay] = useState(() => {
+    const JS_TO_DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    return JS_TO_DAY[new Date().getDay()]
+  })
+
+  // The name of today used for the header "Today's Focus" dropdown
+  const todayDayName = (() => {
+    const JS_TO_DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    return JS_TO_DAY[new Date().getDay()]
+  })()
 
   const emptyWeek = {
     'Monday': [], 'Tuesday': [], 'Wednesday': [],
@@ -172,19 +184,19 @@ export default function Dashboard({ user, onLogout }) {
             <div className="relative group">
               <CalendarIcon
                 onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
-                className={'w-6 h-6 cursor-pointer transition-colors ' + (tasks['Monday'].every(t => t.completed) && tasks['Monday'].length > 0 ? 'text-green-500' : 'text-gray-400 hover:text-purple-600')}
+                className={'w-6 h-6 cursor-pointer transition-colors ' + (tasks[todayDayName]?.every(t => t.completed) && tasks[todayDayName]?.length > 0 ? 'text-green-500' : 'text-gray-400 hover:text-purple-600')}
               />
               <div className={'absolute top-full right-0 mt-4 w-72 bg-white rounded-2xl shadow-xl border-2 border-purple-100 p-4 transition-all duration-300 transform origin-top-right z-50 ' + (showScheduleDropdown ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none')}>
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-black text-black text-sm">Today's Focus</h3>
-                  <span className="text-xs font-bold text-gray-400">{tasks['Monday'].filter(t => t.completed).length}/{tasks['Monday'].length} done</span>
+                  <span className="text-xs font-bold text-gray-400">{tasks[todayDayName]?.filter(t => t.completed).length}/{tasks[todayDayName]?.length} done</span>
                 </div>
-                {tasks['Monday'].length === 0 ? (
+                {(tasks[todayDayName]?.length ?? 0) === 0 ? (
                   <p className="text-xs text-center text-gray-400 py-4">No tasks for today</p>
                 ) : (
                   <div className="space-y-2">
-                    {tasks['Monday'].map(task => (
-                      <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" onClick={() => toggleTaskComplete('Monday', task.id)}>
+                    {tasks[todayDayName].map(task => (
+                      <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer" onClick={() => toggleTaskComplete(todayDayName, task.id)}>
                         <button className={'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ' + (task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300')}>
                           {task.completed && <CheckCircleIcon className="w-3 h-3 text-white" />}
                         </button>
@@ -196,7 +208,7 @@ export default function Dashboard({ user, onLogout }) {
                     ))}
                   </div>
                 )}
-                <button onClick={() => { setActiveTab('schedule'); setShowScheduleDropdown(false) }} className="w-full mt-3 bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 transition-colors">
+                <button onClick={() => { setActiveTab('schedule'); setActiveDay(todayDayName); setShowScheduleDropdown(false) }} className="w-full mt-3 bg-black text-white text-xs font-bold py-2 rounded-lg hover:bg-gray-800 transition-colors">
                   View Full Schedule
                 </button>
               </div>

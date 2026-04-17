@@ -4,8 +4,7 @@ import {
     CalendarIcon, PlusIcon, TrashIcon, CheckCircleIcon,
     ArrowRightIcon, ChevronDownIcon, ChevronUpIcon,
     PencilIcon, ExclamationTriangleIcon,
-    LightBulbIcon, ClockIcon, AcademicCapIcon, SparklesIcon,
-    BoltIcon,
+    ClockIcon, AcademicCapIcon, SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 function TimeSelect({ value, onChange, label }) {
@@ -34,6 +33,11 @@ function TimeSelect({ value, onChange, label }) {
     )
 }
 
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const jsToWeekIdx = (jsDay) => (jsDay === 0 ? 6 : jsDay - 1)
+const weekIdx = (day) => DAYS.indexOf(day)
+const getTodayWeekIdx = () => jsToWeekIdx(new Date().getDay())
+
 export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, user }) {
     const [showAddTask, setShowAddTask]     = useState(false)
     const [newTask, setNewTask]             = useState({ startTime: '09:00', endTime: '10:00', title: '', notes: '' })
@@ -49,40 +53,41 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     const [editError, setEditError]         = useState('')
     const [addWarnings, setAddWarnings]     = useState([])
     const [editWarnings, setEditWarnings]   = useState([])
-    const [dayWarnings, setDayWarnings]     = useState([]) // soft warnings shown on the plan inline
+    const [dayWarnings, setDayWarnings]     = useState([])
     const [isSaving, setIsSaving]           = useState(false)
 
-    // Recommendations
     const [blockedWindows, setBlockedWindows] = useState([])
     const [upcomingExams, setUpcomingExams]   = useState([])
     const [suggestions, setSuggestions]       = useState([])
     const [recsLoading, setRecsLoading]       = useState(false)
-    const [recsTrigger, setRecsTrigger]       = useState(0) // increment to force suggestion refresh
+    const [recsTrigger, setRecsTrigger]       = useState(0)
 
-    // Per-suggestion state: 'idle' | 'adding' | 'added' | 'error'
     const [suggestionStates, setSuggestionStates] = useState({})
-    // If no free slot found, show inline time picker for that suggestion
-    const [suggestionTimePicker, setSuggestionTimePicker] = useState(null) // { index, startTime, endTime, error }
+    const [suggestionTimePicker, setSuggestionTimePicker] = useState(null)
 
-
-    // Colour scheme per taskType from backend
     const suggestionTypeStyle = {
-        STUDY:   { bar: 'bg-blue-400',    card: 'bg-blue-50 border-blue-100 hover:border-blue-300',         badge: 'bg-blue-100 text-blue-700 border-blue-200',         btn: 'bg-blue-500 hover:bg-blue-600',    picker: 'border-blue-200' },
-        WELLNESS:{ bar: 'bg-emerald-400', card: 'bg-emerald-50 border-emerald-100 hover:border-emerald-300', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', btn: 'bg-emerald-500 hover:bg-emerald-600', picker: 'border-emerald-200' },
-        OTHER:   { bar: 'bg-violet-400',  card: 'bg-violet-50 border-violet-100 hover:border-violet-300',    badge: 'bg-violet-100 text-violet-700 border-violet-200',    btn: 'bg-violet-500 hover:bg-violet-600',  picker: 'border-violet-200' },
+        STUDY:   { badge: 'bg-blue-100 text-blue-700 border-blue-200' },
+        WELLNESS:{ badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+        OTHER:   { badge: 'bg-violet-100 text-violet-700 border-violet-200' },
     }
     const getSuggestionStyle = (taskType) => suggestionTypeStyle[taskType] || suggestionTypeStyle.OTHER
-    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
-    // ── Fetch Recommendations ────────────────────────────────────────────────
+    const todayWeekIndex  = getTodayWeekIdx()
+    const isPastDay       = (d) => weekIdx(d) < todayWeekIndex
+    const isTodayDay      = (d) => weekIdx(d) === todayWeekIndex
+    const activeDayIsLocked = isPastDay(activeDay)
+
+    // ── Fetch Recommendations for ALL days — just hide suggestions for past days ──
     useEffect(() => {
         if (!user?.id) return
+
         setRecsLoading(true)
         getRecommendations(user.id, activeDay)
             .then(data => {
                 setBlockedWindows(data?.blockedWindows || [])
                 setUpcomingExams(data?.upcomingExams   || [])
-                setSuggestions(data?.suggestions       || [])
+                // Past days: never show AI suggestions
+                setSuggestions(isPastDay(activeDay) ? [] : (data?.suggestions || []))
                 setSuggestionStates({})
                 setSuggestionTimePicker(null)
             })
@@ -113,17 +118,13 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     const hasOverlap = (day,s,e,excl=null) => tasks[day].some(r => { const t=normaliseTask(r); if(t.id===excl) return false; return toMins(s)<toMins(t.endTime)&&toMins(e)>toMins(t.startTime) })
     const isBlockedBySchool = (s,e) => blockedWindows.some(w => toMins(s)<toMins(w.endTime)&&toMins(e)>toMins(w.startTime))
 
-    const dayIdx  = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 }
-    const isPast  = (d) => dayIdx[d] < new Date().getDay()
-    const isToday = (d) => dayIdx[d] === new Date().getDay()
     const isOverdue = (t) => {
         if (t.completed) return false
-        if (isPast(activeDay)) return true
-        if (isToday(activeDay)) { const n=new Date(); return toMins(t.endTime) < n.getHours()*60+n.getMinutes() }
+        if (isPastDay(activeDay)) return true
+        if (isTodayDay(activeDay)) { const n=new Date(); return toMins(t.endTime) < n.getHours()*60+n.getMinutes() }
         return false
     }
 
-    // ── Frontend study cap (mirrors backend class-based caps) ──────────────
     const getMaxDailyStudyMins = (className, weekend) => {
         if (!className) return 120
         const lc = className.toLowerCase()
@@ -139,7 +140,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
         activeDay === 'Saturday' || activeDay === 'Sunday'
     )
 
-    const nextDay   = days[(days.indexOf(activeDay)+1)%7]
+    const nextDay   = DAYS[(DAYS.indexOf(activeDay)+1) % 7]
     const normTasks = tasks[activeDay].map(normaliseTask)
     const totalT    = normTasks.length
     const doneT     = normTasks.filter(t => t.completed).length
@@ -161,10 +162,8 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
         NORMAL:   'bg-green-100 text-green-700 border-green-200',
     }
 
-    // ── Find a free slot for a suggestion ────────────────────────────────────
     const findFreeSlot = useCallback((durationMins, taskType = 'STUDY') => {
         const existing = [...normTasks].sort((a,b) => toMins(a.startTime)-toMins(b.startTime))
-        // School hours also count as existing blocks
         const allBlocks = [
             ...existing,
             ...blockedWindows.map(w => ({ startTime: w.startTime, endTime: w.endTime, detectedType: 'school' }))
@@ -176,7 +175,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             const endTime   = `${String(Math.floor(endMins/60)).padStart(2,'0')}:${String(endMins%60).padStart(2,'0')}`
             if (isBlockedBySchool(startTime, endTime)) continue
             if (hasOverlap(activeDay, startTime, endTime)) continue
-            // 10-min gap rule only applies between study sessions
             if (taskType === 'STUDY') {
                 const studyBlocks = allBlocks.filter(t => t.detectedType?.toLowerCase() === 'study')
                 const tooClose = studyBlocks.some(t => {
@@ -191,14 +189,13 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
         return null
     }, [normTasks, blockedWindows, activeDay])
 
-    // ── One-click suggestion add ─────────────────────────────────────────────
     const handleQuickAdd = async (suggestion, index) => {
+        if (activeDayIsLocked) return
         const key = suggestion.title
         const durationMins = suggestion.estimatedMinutes || 45
         const slot = findFreeSlot(durationMins, suggestion.taskType)
 
         if (!slot) {
-            // No free slot — show inline time picker
             const fallbackStart = '15:00'
             const fallbackEnd   = `${String(15 + Math.floor(durationMins/60)).padStart(2,'0')}:${String(durationMins%60).padStart(2,'0')}`
             setSuggestionTimePicker({ index, startTime: fallbackStart, endTime: fallbackEnd, error: '' })
@@ -212,33 +209,22 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             setSuggestions(prev => prev.filter((_, i) => i !== index))
             setSuggestionStates(p => ({ ...p, [key]: 'added' }))
         } catch (err) {
-            // Auto-slot was rejected by backend — fall back to manual time picker
             setSuggestionStates(p => ({ ...p, [key]: 'idle' }))
-            const durationMins = suggestion.estimatedMinutes || 45
-            const fallbackStart = slot?.startTime || '15:00'
-            const fallbackEnd   = slot?.endTime   || `${String(15 + Math.floor(durationMins/60)).padStart(2,'0')}:${String(durationMins%60).padStart(2,'0')}`
-            setSuggestionTimePicker({ index, startTime: fallbackStart, endTime: fallbackEnd, error: err.message || 'Could not auto-schedule. Pick a time manually.' })
+            const dm = suggestion.estimatedMinutes || 45
+            const fs = slot?.startTime || '15:00'
+            const fe = slot?.endTime   || `${String(15 + Math.floor(dm/60)).padStart(2,'0')}:${String(dm%60).padStart(2,'0')}`
+            setSuggestionTimePicker({ index, startTime: fs, endTime: fe, error: err.message || 'Could not auto-schedule. Pick a time manually.' })
         }
     }
 
-    // ── Time-picker fallback confirm ─────────────────────────────────────────
     const confirmTimePicker = async () => {
-        if (!suggestionTimePicker) return
+        if (!suggestionTimePicker || activeDayIsLocked) return
         const { index, startTime, endTime } = suggestionTimePicker
         const suggestion = suggestions[index]
         const key = suggestion.title
-        if (toMins(endTime) <= toMins(startTime)) {
-            setSuggestionTimePicker(p => ({ ...p, error: 'End time must be after start time.' }))
-            return
-        }
-        if (isBlockedBySchool(startTime, endTime)) {
-            setSuggestionTimePicker(p => ({ ...p, error: 'This slot is blocked by school hours.' }))
-            return
-        }
-        if (hasOverlap(activeDay, startTime, endTime)) {
-            setSuggestionTimePicker(p => ({ ...p, error: 'This slot overlaps with another task.' }))
-            return
-        }
+        if (toMins(endTime) <= toMins(startTime)) { setSuggestionTimePicker(p => ({ ...p, error: 'End time must be after start time.' })); return }
+        if (isBlockedBySchool(startTime, endTime)) { setSuggestionTimePicker(p => ({ ...p, error: 'This slot is blocked by school hours.' })); return }
+        if (hasOverlap(activeDay, startTime, endTime)) { setSuggestionTimePicker(p => ({ ...p, error: 'This slot overlaps with another task.' })); return }
         setSuggestionStates(p => ({ ...p, [key]: 'adding' }))
         try {
             const saved = await addTask(user.id, activeDay, suggestion.title, startTime, endTime, '')
@@ -246,18 +232,15 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             setSuggestions(prev => prev.filter((_, i) => i !== index))
             setSuggestionTimePicker(null)
             setTimeout(() => setRecsTrigger(t => t + 1), 400)
-            if (saved.warnings?.length > 0) {
-                setDayWarnings(saved.warnings)
-                setTimeout(() => setDayWarnings([]), 6000)
-            }
+            if (saved.warnings?.length > 0) { setDayWarnings(saved.warnings); setTimeout(() => setDayWarnings([]), 6000) }
         } catch (err) {
             setSuggestionTimePicker(p => ({ ...p, error: err.message || 'Could not save task.' }))
             setSuggestionStates(p => ({ ...p, [key]: 'idle' }))
         }
     }
 
-    // ── CRUD handlers ────────────────────────────────────────────────────────
     const handleAdd = async () => {
+        if (activeDayIsLocked) return
         setOverlapError(''); setAddWarnings([])
         if (!newTask.title || !newTask.startTime || !newTask.endTime) return
         if (toMins(newTask.endTime) <= toMins(newTask.startTime)) { setOverlapError('End time must be after start time.'); return }
@@ -267,8 +250,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             const saved = await addTask(user.id, activeDay, newTask.title, newTask.startTime, newTask.endTime, newTask.notes)
             setTasks(prev => ({ ...prev, [activeDay]: [...prev[activeDay], { ...saved, completed: false }] }))
             if (saved.warnings?.length > 0) {
-                setAddWarnings(saved.warnings)
-                setDayWarnings(saved.warnings)
+                setAddWarnings(saved.warnings); setDayWarnings(saved.warnings)
                 setTimeout(() => { setAddWarnings([]); setShowAddTask(false); setNewTask({ startTime:'09:00', endTime:'10:00', title:'', notes:'' }) }, 4000)
                 setTimeout(() => setDayWarnings([]), 8000)
             } else {
@@ -281,6 +263,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
     const handleDelete = async (e, id) => {
         e.stopPropagation()
+        if (activeDayIsLocked) return
         try {
             await deleteTask(id)
             setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].filter(t => t.id !== id) }))
@@ -290,6 +273,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     }
 
     const toggleDone = async (id) => {
+        if (activeDayIsLocked) return
         try {
             const saved = await toggleTaskComplete(id)
             setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].map(t => t.id===id ? { ...t, completed: saved.completed } : t) }))
@@ -298,12 +282,14 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
     const openEdit = (e, task) => {
         e.stopPropagation()
+        if (activeDayIsLocked) return
         setEditingTask(task)
         setEditData({ title: task.title, startTime: task.startTime, endTime: task.endTime, notes: task.notes || '' })
         setEditError(''); setEditWarnings([])
     }
 
     const saveEdit = async () => {
+        if (activeDayIsLocked) return
         setEditError(''); setEditWarnings([])
         if (!editData.title || !editData.startTime || !editData.endTime) return
         if (toMins(editData.endTime) <= toMins(editData.startTime)) { setEditError('End time must be after start time.'); return }
@@ -313,8 +299,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             const saved = await editTask(editingTask.id, user.id, activeDay, editData.title, editData.startTime, editData.endTime, editData.notes)
             setTasks(prev => ({ ...prev, [activeDay]: prev[activeDay].map(t => t.id===editingTask.id ? { ...t, ...saved } : t) }))
             if (saved.warnings?.length > 0) {
-                setEditWarnings(saved.warnings)
-                setDayWarnings(saved.warnings)
+                setEditWarnings(saved.warnings); setDayWarnings(saved.warnings)
                 setTimeout(() => { setEditWarnings([]); setEditingTask(null) }, 4000)
                 setTimeout(() => setDayWarnings([]), 8000)
             } else { setEditingTask(null) }
@@ -332,6 +317,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
     }
 
     const initPush = () => {
+        if (activeDayIsLocked) return
         const inc = tasks[activeDay].filter(t => !t.completed).map(normaliseTask)
         const nc  = inc.filter(t => !hasOverlap(nextDay, t.startTime, t.endTime))
         const c   = inc.filter(t =>  hasOverlap(nextDay, t.startTime, t.endTime))
@@ -356,7 +342,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
     const closePush = () => { setShowPushModal(false); setPushNonConflicts([]); setPushConflicts([]); setConflictTimes({}); setPushError('') }
 
-    // ── Build the merged timeline (tasks + school blocks) ────────────────────
     const schoolBlocks = blockedWindows.map((w, i) => ({
         id: `school-${i}`,
         title: 'School Hours',
@@ -413,22 +398,46 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
             <div className="grid lg:grid-cols-4 gap-6">
 
-                {/* Sidebar — Day Picker */}
+                {/* ── Sidebar Day Picker ── */}
                 <div className="lg:col-span-1 bg-white border-2 border-violet-200 rounded-2xl p-4 h-fit">
                     <div className="space-y-2">
-                        {days.map(day => {
-                            const dt=tasks[day]; const dc=dt.filter(t=>t.completed).length; const dp=dt.length>0?(dc/dt.length)*100:0
-                            const isActive = activeDay===day
+                        {DAYS.map(day => {
+                            const dt       = tasks[day]
+                            const dc       = dt.filter(t => t.completed).length
+                            const dp       = dt.length > 0 ? (dc / dt.length) * 100 : 0
+                            const isActive = activeDay === day
+                            const isPast   = isPastDay(day)
+                            const isToday  = isTodayDay(day)
+
                             return (
                                 <button key={day} onClick={() => setActiveDay(day)}
-                                    className={`group w-full text-left px-4 py-3 rounded-xl font-bold transition-all ${isActive?'bg-white text-black border-2 border-violet-500 shadow-lg shadow-violet-100':'text-black hover:bg-[#f3f0fb] border-2 border-transparent'}`}>
+                                    className={`group w-full text-left px-4 py-3 rounded-xl font-bold transition-all
+                                        ${isActive
+                                            ? isPast
+                                                ? 'bg-white text-gray-400 border-2 border-gray-200 shadow-sm'
+                                                : 'bg-white text-black border-2 border-violet-500 shadow-lg shadow-violet-100'
+                                            : isPast
+                                                ? 'text-gray-400 bg-gray-50 border-2 border-gray-100 opacity-60 hover:opacity-80'
+                                                : isToday
+                                                    ? 'text-black hover:bg-violet-50 border-2 border-violet-200'
+                                                    : 'text-black hover:bg-[#f3f0fb] border-2 border-transparent'
+                                        }`}>
                                     <div className="flex justify-between items-center mb-1">
-                                        <span>{day}</span>
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-500">{dt.length}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>{day}</span>
+                                            {isToday && (
+                                                <span className="text-[9px] font-black bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                                                    Today
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${isPast ? 'bg-gray-100 text-gray-400' : 'bg-violet-100 text-violet-500'}`}>
+                                            {dt.length}
+                                        </span>
                                     </div>
-                                    {dt.length>0 && (
+                                    {dt.length > 0 && (
                                         <div className="h-1 rounded-full overflow-hidden bg-gray-100">
-                                            <div className="h-full rounded-full transition-all duration-500 bg-green-400" style={{ width:`${dp}%` }} />
+                                            <div className={`h-full rounded-full transition-all duration-500 ${isPast ? 'bg-green-400' : 'bg-green-400'}`} style={{ width:`${dp}%` }} />
                                         </div>
                                     )}
                                 </button>
@@ -437,24 +446,34 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                     </div>
                 </div>
 
-                {/* Main — Schedule Card */}
+                {/* ── Main Schedule Card ── */}
                 <div className="lg:col-span-3 space-y-4">
                     <div className="bg-white border-2 border-violet-200 rounded-2xl p-6 min-h-[600px]">
 
                         {/* Card Header */}
                         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
-                            <h2 className="text-2xl font-black text-black">{activeDay}'s Plan</h2>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {incomplete > 0 && (
-                                    <button onClick={initPush} className="flex items-center gap-2 bg-purple-50 text-purple-600 border-2 border-purple-200 px-4 py-2 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">
-                                        <ArrowRightIcon className="w-4 h-4" />Push {incomplete} to {nextDay}
-                                    </button>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <h2 className="text-2xl font-black text-black">{activeDay}'s Plan</h2>
+                                {isTodayDay(activeDay) && (
+                                    <span className="text-xs font-black bg-violet-100 text-violet-600 border border-violet-200 px-3 py-1.5 rounded-full">
+                                        📅 Today
+                                    </span>
                                 )}
-                                <button onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
-                                    className="bg-black text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all flex items-center gap-2">
-                                    <PlusIcon className="w-4 h-4" />Add Activity
-                                </button>
                             </div>
+                            {/* Only show action buttons for today/future days */}
+                            {!activeDayIsLocked && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {incomplete > 0 && (
+                                        <button onClick={initPush} className="flex items-center gap-2 bg-purple-50 text-purple-600 border-2 border-purple-200 px-4 py-2 rounded-xl font-bold text-sm hover:bg-purple-100 transition-all">
+                                            <ArrowRightIcon className="w-4 h-4" />Push {incomplete} to {nextDay}
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
+                                        className="bg-black text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-800 transition-all flex items-center gap-2">
+                                        <PlusIcon className="w-4 h-4" />Add Activity
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Empty State */}
@@ -463,12 +482,18 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                 <div className="w-16 h-16 bg-violet-50 rounded-full flex items-center justify-center mb-4">
                                     <CalendarIcon className="w-8 h-8 text-violet-300" />
                                 </div>
-                                <p className="text-gray-500 font-medium">No plans yet for {activeDay}</p>
-                                <p className="text-sm text-violet-400 mb-4">Add your first activity to get started!</p>
-                                <button onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
-                                    className="flex items-center gap-2 text-sm text-violet-500 font-bold bg-violet-50 px-4 py-2 rounded-xl border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer">
-                                    <PlusIcon className="w-4 h-4" />Add your first activity
-                                </button>
+                                <p className="text-gray-500 font-medium">No plans for {activeDay}</p>
+                                {activeDayIsLocked ? (
+                                    <p className="text-sm text-gray-400 mt-1">Nothing was recorded for this day.</p>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-violet-400 mb-4">Add your first activity to get started!</p>
+                                        <button onClick={() => { setShowAddTask(true); setOverlapError(''); setAddWarnings([]) }}
+                                            className="flex items-center gap-2 text-sm text-violet-500 font-bold bg-violet-50 px-4 py-2 rounded-xl border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer">
+                                            <PlusIcon className="w-4 h-4" />Add your first activity
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         )}
 
@@ -476,19 +501,17 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                         {allItems.length > 0 && (
                             <div className="space-y-3 mb-6">
                                 {allItems.map(task => {
-                                    // ── School block card — identical structure to regular task card ──
+
+                                    // School block card
                                     if (task.isSchoolBlock) {
                                         const dur = getDur(task.startTime, task.endTime)
                                         return (
-                                            <div key={task.id} className="border-2 border-orange-200 rounded-xl bg-white">
+                                            <div key={task.id} className={`border-2 rounded-xl bg-white ${activeDayIsLocked ? 'border-orange-100 opacity-80' : 'border-orange-200'}`}>
                                                 <div className="flex items-center gap-3 p-4">
-                                                    {/* Circle — same size as task checkbox, orange tint */}
-                                                    <div className="flex-shrink-0 w-8 h-8 rounded-full border-2 border-orange-300 bg-white flex items-center justify-center">
+                                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${activeDayIsLocked ? 'border-orange-200' : 'border-orange-300'}`}>
                                                         <ClockIcon className="w-4 h-4 text-orange-400" />
                                                     </div>
-                                                    {/* Accent bar — orange */}
                                                     <div className="w-1 h-10 rounded-full flex-shrink-0 bg-orange-400" />
-                                                    {/* Info */}
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex justify-between items-start gap-2">
                                                             <h3 className="font-bold text-lg text-black">School Hours</h3>
@@ -504,7 +527,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                         )
                                     }
 
-                                    // ── Regular task card ──
+                                    // Regular task card
                                     const detectedType = task.detectedType
                                         ? task.detectedType.charAt(0).toUpperCase()+task.detectedType.slice(1).toLowerCase()
                                         : 'Other'
@@ -513,41 +536,85 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                     const dur     = getDur(task.startTime, task.endTime)
                                     const isExp   = expandedTask === task.id
                                     const hasNote = task.notes?.trim().length > 0
+
                                     return (
                                         <div key={task.id}
-                                            className={`border-2 rounded-xl transition-all duration-300 ${task.completed?`bg-white ${colors.border}`:'bg-gray-50 border-gray-300'}`}>
-                                            <div className="group flex items-center gap-3 p-4 cursor-pointer hover:opacity-90" onClick={() => toggleDone(task.id)}>
-                                                <button onClick={e => { e.stopPropagation(); toggleDone(task.id) }}
-                                                    className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${task.completed?'bg-green-500 border-green-500 text-white':'border-gray-300 bg-white opacity-70 group-hover:opacity-100'}`}>
+                                            className={`border-2 rounded-xl transition-all duration-300 ${
+                                                activeDayIsLocked
+                                                    ? `bg-white ${task.completed ? colors.border : 'border-gray-200'}`
+                                                    : task.completed
+                                                        ? `bg-white ${colors.border}`
+                                                        : 'bg-gray-50 border-gray-300'
+                                            }`}>
+                                            <div
+                                                className={`group flex items-center gap-3 p-4 ${activeDayIsLocked ? 'cursor-default' : 'cursor-pointer hover:opacity-90'}`}
+                                                onClick={() => !activeDayIsLocked && toggleDone(task.id)}>
+
+                                                {/* Completion circle */}
+                                                <button
+                                                    disabled={activeDayIsLocked}
+                                                    onClick={e => { e.stopPropagation(); if (!activeDayIsLocked) toggleDone(task.id) }}
+                                                    className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                        task.completed
+                                                            ? 'bg-green-500 border-green-500 text-white'
+                                                            : activeDayIsLocked
+                                                                ? 'border-gray-200 bg-white cursor-default'
+                                                                : 'border-gray-300 bg-white opacity-70 group-hover:opacity-100'
+                                                    }`}>
                                                     {task.completed && <CheckCircleIcon className="w-5 h-5" />}
                                                 </button>
-                                                <div className={`w-1 h-10 rounded-full flex-shrink-0 ${colors.bg}`} />
+
+                                                <div className={`w-1 h-10 rounded-full flex-shrink-0 ${activeDayIsLocked ? (task.completed ? colors.bg : 'bg-gray-200') : colors.bg}`} />
+
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start gap-2">
-                                                        <h3 className={`font-bold text-lg ${task.completed?'text-black':'text-gray-400'}`}>{task.title}</h3>
+                                                        <h3 className={`font-bold text-lg ${task.completed ? 'text-black' : activeDayIsLocked ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                            {task.title}
+                                                        </h3>
                                                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                            {overdue && !task.completed && <span className="text-xs bg-red-100 text-red-600 font-black px-2 py-0.5 rounded-full border border-red-200">⏰ Overdue</span>}
+                                                            {overdue && !task.completed && (
+                                                                <span className="text-xs bg-red-100 text-red-600 font-black px-2 py-0.5 rounded-full border border-red-200">⏰ Overdue</span>
+                                                            )}
                                                             {dur && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{dur}</span>}
-                                                            <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide ${colors.light} ${colors.text}`}>{detectedType}</span>
+                                                            <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide ${activeDayIsLocked ? 'bg-gray-100 text-gray-400' : `${colors.light} ${colors.text}`}`}>
+                                                                {detectedType}
+                                                            </span>
                                                         </div>
                                                     </div>
-                                                    <p className={`text-sm font-medium mt-0.5 ${task.completed?'text-gray-500':'text-gray-400'}`}>{fmtTime(task.startTime)} → {fmtTime(task.endTime)}</p>
+                                                    <p className={`text-sm font-medium mt-0.5 ${task.completed ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        {fmtTime(task.startTime)} → {fmtTime(task.endTime)}
+                                                    </p>
                                                 </div>
+
                                                 <div className="flex items-center gap-1 flex-shrink-0">
+                                                    {/* Expand notes — always visible */}
                                                     <button onClick={e => { e.stopPropagation(); setExpandedTask(isExp?null:task.id) }}
                                                         className={`p-2 rounded-lg transition-all ${isExp?'bg-violet-100 text-violet-500':hasNote?'text-violet-300 hover:bg-violet-50':'text-gray-300 hover:text-gray-400 hover:bg-gray-50'}`}>
                                                         {isExp ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
                                                     </button>
-                                                    <button onClick={e => openEdit(e, task)} className="p-2 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-50 transition-all"><PencilIcon className="w-4 h-4" /></button>
-                                                    <button onClick={e => handleDelete(e, task.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-lg transition-all"><TrashIcon className="w-4 h-4" /></button>
+                                                    {/* Edit / Delete — only for today/future */}
+                                                    {!activeDayIsLocked && (
+                                                        <>
+                                                            <button onClick={e => openEdit(e, task)} className="p-2 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-50 transition-all">
+                                                                <PencilIcon className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={e => handleDelete(e, task.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-50 rounded-lg transition-all">
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
+
                                             {isExp && (
                                                 <div className="px-4 pb-4">
                                                     <div className="h-px bg-gray-100 mb-3" />
                                                     <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-3">
                                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">📝 Notes</p>
-                                                        {hasNote ? <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{task.notes}</p> : <p className="text-sm text-gray-300 italic">No notes yet. Click Edit to add some.</p>}
+                                                        {hasNote
+                                                            ? <p className="text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">{task.notes}</p>
+                                                            : <p className="text-sm text-gray-300 italic">No notes recorded.</p>
+                                                        }
                                                     </div>
                                                 </div>
                                             )}
@@ -569,8 +636,8 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                             </div>
                         )}
 
-                        {/* ── AI Planner Section ── */}
-                        {(recsLoading || suggestions.length > 0) && (() => {
+                        {/* ── AI Planner — only for today/future days ── */}
+                        {!activeDayIsLocked && (recsLoading || suggestions.length > 0) && (() => {
                             const filteredSuggestions = recsLoading ? [] : suggestions.filter(s => {
                                 const alreadyAdded = normTasks.some(t => t.title?.toLowerCase() === s.title?.toLowerCase())
                                 if (alreadyAdded) return false
@@ -585,7 +652,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
 
                             return (
                                 <div className="mt-2 rounded-2xl overflow-hidden border border-violet-100 shadow-sm">
-                                    {/* AI Header Bar */}
                                     <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-4">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
@@ -605,10 +671,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                         </div>
                                     </div>
 
-                                    {/* Body */}
                                     <div className="bg-gradient-to-b from-violet-50/60 to-white px-4 py-4 space-y-2">
-
-                                        {/* Loading state */}
                                         {recsLoading && (
                                             <div className="flex items-center gap-3 py-4 justify-center">
                                                 <div className="flex gap-1">
@@ -620,7 +683,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                             </div>
                                         )}
 
-                                        {/* Suggestion Cards */}
                                         {filteredSuggestions.map((s, i) => {
                                             const state = suggestionStates[s.title] || 'idle'
                                             const isPickerOpen = suggestionTimePicker?.index === i
@@ -636,16 +698,10 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                                         isPickerOpen       ? 'bg-white border-violet-300 shadow-sm' :
                                                                              'bg-white border-gray-100 hover:border-violet-200 hover:shadow-sm'
                                                     }`}>
-                                                        {/* Type icon */}
                                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${
                                                             s.taskType === 'WELLNESS' ? 'bg-emerald-100' :
-                                                            s.taskType === 'OTHER'    ? 'bg-violet-100' :
-                                                                                        'bg-blue-100'
-                                                        }`}>
-                                                            {typeEmoji}
-                                                        </div>
-
-                                                        {/* Info */}
+                                                            s.taskType === 'OTHER'    ? 'bg-violet-100' : 'bg-blue-100'
+                                                        }`}>{typeEmoji}</div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className={`text-sm font-bold truncate ${state === 'added' ? 'text-green-700' : 'text-gray-800'}`}>
                                                                 {state === 'added' ? '✓ Added!' : s.title}
@@ -657,8 +713,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                                                 <span className="text-[10px] text-gray-500 font-medium italic">{s.reasonLabel}</span>
                                                             </div>
                                                         </div>
-
-                                                        {/* Add Button */}
                                                         {state === 'adding' && (
                                                             <div className="w-16 h-8 flex items-center justify-center">
                                                                 <div className="w-4 h-4 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
@@ -670,16 +724,12 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                                             </div>
                                                         )}
                                                         {(state === 'idle' || state === 'error') && !isPickerOpen && (
-                                                            <button
-                                                                onClick={() => handleQuickAdd(s, i)}
+                                                            <button onClick={() => handleQuickAdd(s, i)}
                                                                 className="shrink-0 flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors shadow-sm">
-                                                                <PlusIcon className="w-3.5 h-3.5" />
-                                                                Add
+                                                                <PlusIcon className="w-3.5 h-3.5" />Add
                                                             </button>
                                                         )}
                                                     </div>
-
-                                                    {/* Inline Time Picker */}
                                                     {isPickerOpen && (
                                                         <div className="mx-1 mt-1 bg-violet-50 border-2 border-violet-200 rounded-xl p-4">
                                                             <p className="text-xs text-violet-600 font-bold mb-3">📅 Pick a time for "{s.title}"</p>
@@ -706,7 +756,6 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
                                             )
                                         })}
 
-                                        {/* Footer */}
                                         {!recsLoading && filteredSuggestions.length === 0 && (
                                             <div className="text-center py-4">
                                                 <p className="text-sm text-violet-400 font-medium">✨ All suggestions added for {activeDay}!</p>
@@ -727,7 +776,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             </div>
 
             {/* ── Edit Modal ── */}
-            {editingTask && (
+            {editingTask && !activeDayIsLocked && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm border-2 border-violet-200 shadow-xl">
                         <div className="flex items-center gap-3 mb-5">
@@ -769,7 +818,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             )}
 
             {/* ── Add Activity Modal ── */}
-            {showAddTask && (
+            {showAddTask && !activeDayIsLocked && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm border-2 border-violet-200 shadow-xl">
                         <h3 className="text-xl font-black text-black mb-4">Add New Activity</h3>
@@ -817,7 +866,7 @@ export default function Schedule({ tasks, setTasks, activeDay, setActiveDay, use
             )}
 
             {/* ── Push Modal ── */}
-            {showPushModal && (
+            {showPushModal && !activeDayIsLocked && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-amber-200 shadow-xl max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center gap-3 mb-5">
