@@ -247,7 +247,7 @@ export default function UserManagement({ user }) {
                 section: full.section || '',
                 school: full.school || '',
                 parentName: full.parentName || '',
-                parentPhone: full.parentEmail || full.parentPhone || '',
+                parentPhone: full.parentPhone || '',
                 phoneNumber: full.phoneNumber || '',
                 dateOfBirth: full.dateOfBirth || '',
                 gender: full.gender || '',
@@ -326,7 +326,7 @@ export default function UserManagement({ user }) {
                     className: formData.class || undefined,
                     grade: formData.class || undefined,
                     parentName: formData.parentName || undefined,
-                    parentEmail: formData.parentPhone || undefined,
+                    parentPhone: formData.parentPhone || undefined,
                     dateOfBirth: formData.dateOfBirth || undefined,
                     age: formData.dateOfBirth ? calculateAgeFromDOB(formData.dateOfBirth) : undefined,
                     rollNo: formData.rollNo || undefined,
@@ -619,9 +619,9 @@ export default function UserManagement({ user }) {
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">
-                                                                {full.parentEmail ? (
+                                                                {full.parentPhone ? (
                                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                                        <PhoneIcon className="w-3 h-3" />{full.parentEmail}
+                                                                        <PhoneIcon className="w-3 h-3" />{full.parentPhone}
                                                                     </span>
                                                                 ) : '—'}
                                                             </td>
