@@ -8,7 +8,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
         // Don't crash the Vite dev server when the backend is temporarily down.
@@ -19,7 +19,7 @@ export default defineConfig({
             // Only log once per unique error message to avoid console spam
             if (err.code === 'ECONNREFUSED') {
               console.warn(
-                '\n  [proxy] Backend not reachable at http://localhost:8081\n' +
+                '\n  [proxy] Backend not reachable at http://localhost:8080\n' +
                 '  Start it with:  cd EmpathaiBackend-main && mvn spring-boot:run\n'
               )
             }

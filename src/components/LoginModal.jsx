@@ -14,6 +14,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
     setLoading(true)
     try {
       const user = await login(email, password)
+      
       // Normalize the user object for App.jsx usage
       const computedAge = (() => {
         if (user.age != null) return user.age
