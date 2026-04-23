@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 async function sendTimeSpent(userId, seconds) {
     if (!userId || seconds <= 0) return;
-
     try {
         const token = localStorage.getItem('access_token') || '';
         await fetch('/api/users/' + userId + '/time-spent', {
@@ -19,51 +18,59 @@ async function sendTimeSpent(userId, seconds) {
     }
 }
 
-let flushed = false;
-
 export default function useTimeTracker(userId) {
     const lastSyncRef = useRef(Date.now());
     const intervalRef = useRef(null);
     const userIdRef = useRef(userId);
-    userIdRef.current = userId;
+
+    // Keep userIdRef in sync without re-running the effect
+    useEffect(() => {
+        userIdRef.current = userId;
+    }, [userId]);
+
+    const flush = useCallback(async () => {
+        const currentUserId = userIdRef.current;
+        if (!currentUserId) return;
+
+        const now = Date.now();
+        const secondsSinceLastSync = Math.floor((now - lastSyncRef.current) / 1000);
+
+        if (secondsSinceLastSync > 0) {
+            lastSyncRef.current = now;
+            await sendTimeSpent(currentUserId, secondsSinceLastSync);
+        }
+    }, [])  // No dependencies — uses refs only
 
     useEffect(() => {
-        if (!userId) return;
+        if (!userId) {
+            // Clear interval if user logs out
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current)
+                intervalRef.current = null
+            }
+            return;
+        }
+
+        // Only start if not already running
+        if (intervalRef.current) return;
 
         lastSyncRef.current = Date.now();
-
-        function flush() {
-            const now = Date.now();
-            const seconds = Math.floor((now - lastSyncRef.current) / 1000);
-            if (seconds > 0) {
-                lastSyncRef.current = now;
-                sendTimeSpent(userIdRef.current, seconds);
-            }
-        }
-
-        function guardedFlush() {
-            if (flushed) return;
-            flushed = true;
-            flush();
-            setTimeout(() => { flushed = false; }, 2000);
-        }
-
         intervalRef.current = setInterval(flush, 60000);
 
-        const handleVisibilityOrHide = () => {
-            if (document.visibilityState === 'hidden') guardedFlush();
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') flush();
         };
+        const handlePageHide = () => flush();
 
-        const handlePageHide = () => guardedFlush();
-
-        document.addEventListener('visibilitychange', handleVisibilityOrHide);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('pagehide', handlePageHide);
 
         return () => {
             clearInterval(intervalRef.current);
-            document.removeEventListener('visibilitychange', handleVisibilityOrHide);
+            intervalRef.current = null;
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('pagehide', handlePageHide);
             flush();
         };
-    }, [userId]);
+    }, [userId, flush]);
 }

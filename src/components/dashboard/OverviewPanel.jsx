@@ -26,13 +26,6 @@ export default function OverviewPanel({ user, setActiveTab }) {
         load()
     }, [])
 
-    const achievements = [
-        { title: '7-day study streak', desc: 'Keep it up!', icon: '🔥', color: 'bg-orange-100', textColor: 'text-orange-600' },
-        { title: 'Math Master', desc: 'Completed 5 chapters', icon: '🎯', color: 'bg-primary/10', textColor: 'text-primary' },
-        { title: 'Mindful Learner', desc: '10 sessions done', icon: '🧘', color: 'bg-blue-100', textColor: 'text-blue-600' },
-        { title: 'Emotion Explorer', desc: 'Top 5% in class', icon: '⭐', color: 'bg-yellow-100', textColor: 'text-yellow-600' },
-    ]
-
     const subjects = [
         { name: 'Mathematics', chapter: 'Algebra', progress: 75, icon: CalculatorIcon, color: 'blue' },
         { name: 'Science', chapter: 'Light & Sound', progress: 60, icon: BeakerIcon, color: 'green' },
@@ -50,28 +43,6 @@ export default function OverviewPanel({ user, setActiveTab }) {
                 <p className="text-base text-gray-500 font-medium tracking-tight">
                     Ready to continue your personalized emotional and academic journey?
                 </p>
-            </div>
-
-            {/* Milestones */}
-            <div className="mb-10 text-center">
-                <h2 className="text-lg font-black text-dark-navy mb-5 flex items-center justify-center gap-2">
-                    <span className="w-6 h-1 bg-purple-200 rounded-full" />Your Milestones<span className="w-6 h-1 bg-purple-200 rounded-full" />
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    {achievements.map((ach, i) => (
-                        <div key={i} className="group bg-white p-5 rounded-3xl border-2 border-purple-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                            <div className={'w-12 h-12 ' + ach.color + ' rounded-xl flex items-center justify-center text-xl mb-4 mx-auto group-hover:scale-110 transition-transform'}>
-                                {ach.icon}
-                            </div>
-                            <h3 className="text-base font-black text-dark-navy mb-1">{ach.title}</h3>
-                            <p className="text-[11px] text-gray-500 font-medium">{ach.desc}</p>
-                            <div className="mt-3 pt-3 border-t border-purple-100 flex items-center justify-between">
-                                <span className={'text-[9px] font-black uppercase tracking-widest ' + ach.textColor}>Achievement</span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
             </div>
 
             {/* Badges */}

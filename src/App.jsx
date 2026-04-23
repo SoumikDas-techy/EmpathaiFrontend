@@ -14,7 +14,7 @@ import SetPassword from './components/SetPassword'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 
-import { getCurrentUser, logout as authLogout, isAdminRole } from './api/authApi.js'
+import { getCurrentUser, logout as authLogout } from './api/authApi.js'
 import { clearTokens } from './api/apiClient.js'
 import useTimeTracker from './api/useTimeTracker'
 
@@ -30,7 +30,6 @@ function HomePage({ user, onLogin, onLogout }) {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const navigate = useNavigate()
 
-  // Scroll reveal
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -65,15 +64,15 @@ function HomePage({ user, onLogin, onLogout }) {
   )
 }
 
-// ─── App shell (holds shared state, wraps router) ─────────────────────────────
+// ─── App shell ────────────────────────────────────────────────────────────────
 function AppShell() {
   const [user, setUser] = useState(() => getCurrentUser())
   const navigate = useNavigate()
 
+  // ── Single time tracking instance for the entire app ──────────────────────
   const studentId = user && !isAdmin(user) ? user.id : null
   useTimeTracker(studentId)
 
-  // Listen for forced logouts (e.g. 401 from API)
   useEffect(() => {
     const handleAuthLogout = () => {
       setUser(null)
@@ -96,41 +95,31 @@ function AppShell() {
 
   return (
     <Routes>
+      {/* Landing page — redirect to dashboard/admin if already logged in */}
       <Route
         path="/"
         element={
-          // If already logged in, skip the landing page
           user
             ? <Navigate to={isAdmin(user) ? '/admin' : '/dashboard'} replace />
             : <HomePage user={user} onLogin={handleLogin} onLogout={handleLogout} />
         }
       />
 
+      {/* Auth page */}
       <Route
         path="/auth"
-        element={<Auth onBackToHome={() => navigate('/')} onLoginSuccess={(u) => { handleLogin(u); navigate(isAdmin(u) ? '/admin' : '/dashboard') }} />}
-      />
-
-      <Route
-        path="/dashboard"
         element={
-          <ProtectedRoute>
-            <Dashboard user={user} onLogout={handleLogout} />
-          </ProtectedRoute>
+          <Auth
+            onBackToHome={() => navigate('/')}
+            onLoginSuccess={(u) => {
+              handleLogin(u)
+              navigate(isAdmin(u) ? '/admin' : '/dashboard')
+            }}
+          />
         }
       />
 
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute roles={ADMIN_ROLES}>
-            <AdminPanel user={user} onLogout={handleLogout} />
-          </ProtectedRoute>
-        }
-      />
-
-
-
+      {/* Student dashboard */}
       <Route
         path="/dashboard"
         element={
@@ -142,6 +131,7 @@ function AppShell() {
         }
       />
 
+      {/* Admin panel */}
       <Route
         path="/admin"
         element={
@@ -153,6 +143,7 @@ function AppShell() {
         }
       />
 
+      {/* Set password (public) */}
       <Route path="/set-password" element={<SetPassword />} />
 
       {/* Catch-all */}
